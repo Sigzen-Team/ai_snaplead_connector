@@ -1,0 +1,7 @@
+include:
+  - local: 'gitlab-ci/semgrep.yml'
+  - local: 'gitlab-ci/tag.yml'
+
+stages:
+  - semgrep
+  - release
