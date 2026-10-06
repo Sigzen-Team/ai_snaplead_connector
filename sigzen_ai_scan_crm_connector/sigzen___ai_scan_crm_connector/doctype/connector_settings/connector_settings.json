@@ -1,0 +1,227 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "business_id",
+  "central_site",
+  "column_break_identity",
+  "enabled",
+  "token_hash",
+  "security_section",
+  "reject_business_mismatch",
+  "column_break_security",
+  "last_request_on",
+  "routing_section",
+  "default_lead_owner",
+  "column_break_routing",
+  "assign_new_leads",
+  "legacy_section",
+  "legacy_migration_status",
+  "legacy_migration_cursor",
+  "legacy_migration_scanned",
+  "legacy_migration_migrated",
+  "column_break_legacy",
+  "legacy_migration_failed",
+  "legacy_migration_conflicts",
+  "legacy_fields_dropped",
+  "legacy_fields_dropped_on",
+  "legacy_migration_dates_section",
+  "legacy_migration_started_on",
+  "legacy_migration_completed_on",
+  "legacy_migration_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "description": "The business this ERP site belongs to. Set once, at onboarding; it cannot be changed afterwards.",
+   "fieldname": "business_id",
+   "fieldtype": "Data",
+   "label": "Business ID",
+   "reqd": 1,
+   "unique": 0
+  },
+  {
+   "description": "For your own reference: the address of the central site this ERP is paired with. Nothing reads it; pairing is decided by the Business ID and the connector token.",
+   "fieldname": "central_site",
+   "fieldtype": "Data",
+   "label": "Central Site (note)"
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "description": "SHA-256 of the shared connector token. The token itself is never stored.",
+   "fieldname": "token_hash",
+   "fieldtype": "Data",
+   "label": "Token Hash"
+  },
+  {
+   "fieldname": "security_section",
+   "fieldtype": "Section Break",
+   "label": "Security"
+  },
+  {
+   "default": "1",
+   "fieldname": "reject_business_mismatch",
+   "fieldtype": "Check",
+   "label": "Reject Business Mismatch"
+  },
+  {
+   "fieldname": "column_break_security",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_request_on",
+   "fieldtype": "Datetime",
+   "label": "Last Request On",
+   "read_only": 1
+  },
+  {
+   "description": "Progress of the one-time migration that moves this app's Custom Fields onto standard ERPNext fields. All read-only: written by the background job, never by hand.",
+   "fieldname": "legacy_section",
+   "fieldtype": "Section Break",
+   "label": "Legacy Field Migration"
+  },
+  {
+   "fieldname": "legacy_migration_status",
+   "fieldtype": "Select",
+   "label": "Migration Status",
+   "options": "\nQueued\nRunning\nComplete\nFailed",
+   "read_only": 1
+  },
+  {
+   "description": "The last Lead name the migration finished. An interrupted run resumes from here instead of starting over.",
+   "fieldname": "legacy_migration_cursor",
+   "fieldtype": "Data",
+   "label": "Migration Cursor",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_migration_scanned",
+   "fieldtype": "Int",
+   "label": "Leads Scanned",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_migration_migrated",
+   "fieldtype": "Int",
+   "label": "Leads Migrated",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_legacy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "legacy_migration_failed",
+   "fieldtype": "Int",
+   "label": "Leads Failed",
+   "read_only": 1
+  },
+  {
+   "description": "Leads whose linked Address already had a different pincode. Both were kept; see Connector Log.",
+   "fieldname": "legacy_migration_conflicts",
+   "fieldtype": "Int",
+   "label": "Pincode Conflicts",
+   "read_only": 1
+  },
+  {
+   "description": "Set by Patch B once the legacy Custom Fields have been archived and removed. While it is set, install.py stops re-creating them.",
+   "fieldname": "legacy_fields_dropped",
+   "fieldtype": "Check",
+   "label": "Legacy Fields Dropped",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_fields_dropped_on",
+   "fieldtype": "Datetime",
+   "label": "Legacy Fields Dropped On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_migration_dates_section",
+   "fieldtype": "Section Break",
+   "label": "Migration Timing"
+  },
+  {
+   "fieldname": "legacy_migration_started_on",
+   "fieldtype": "Datetime",
+   "label": "Migration Started On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_migration_completed_on",
+   "fieldtype": "Datetime",
+   "label": "Migration Completed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_migration_message",
+   "fieldtype": "Long Text",
+   "label": "Migration Message",
+   "read_only": 1
+  },
+  {
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Lead Routing"
+  },
+  {
+   "fieldname": "default_lead_owner",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Default Lead Owner",
+   "description": "Newly created Leads are given this owner instead of the integration user, so they appear in a real salesperson's queue. Leave blank to keep ERPNext's default."
+  },
+  {
+   "fieldname": "column_break_routing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "assign_new_leads",
+   "fieldtype": "Check",
+   "default": "0",
+   "label": "Assign New Leads To Owner",
+   "description": "Also create a ToDo assignment for the Default Lead Owner on every newly created Lead."
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-06 12:24:19.000000",
+ "modified_by": "Administrator",
+ "module": "Sigzen - AI Scan CRM Connector",
+ "name": "Connector Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

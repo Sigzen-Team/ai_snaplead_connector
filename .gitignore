@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments / tooling
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Frappe / bench
+*.log
+node_modules/
+sigzen_ai_scan_crm_connector/public/dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
