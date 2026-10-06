@@ -121,9 +121,9 @@ add_to_apps_screen = [
 # Installation
 # ------------
 
-# On a site that has this app under its old package name, rename that install instead of
-# installing a second copy (upgrade/from_vc_connector.py).
-before_install = "sigzen_ai_scan_crm_connector.upgrade.from_vc_connector.before_install"
+# Rebuilds a stale module map so the install syncs this app's DocTypes, and on a site that has
+# this app under its old package name renames that install instead of installing a second copy.
+before_install = "sigzen_ai_scan_crm_connector.install.before_install"
 after_install = "sigzen_ai_scan_crm_connector.install.after_install"
 # The module and the workspace were renamed. This has to run before every patch and before
 # the model sync, or each DocType of this app fails to load -- see brand_rename.py.

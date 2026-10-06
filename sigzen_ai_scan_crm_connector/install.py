@@ -35,6 +35,24 @@ INTEGRATION_ROLE_PERMISSIONS = {
 WORKSPACE = "Sigzen - AI Scan CRM Connector"
 
 
+def before_install():
+	"""Make sure frappe will actually sync this app's DocTypes, then hand over to the rename.
+
+	`bench install-app` reads the bench's app -> modules map from Redis when it starts, and its
+	model sync walks only the modules that map lists. A map cached before this app reached the
+	bench -- `bench get-app` or a folder rename without a `bench clear-cache` -- has no entry
+	for it, so the sync imports none of the app's DocTypes and still prints 100%. after_install
+	then adds Lead fields whose child tables were never created and the install dies with
+	"Lead: Options must be a valid DocType for field Email IDs". install_app runs this hook
+	before its sync, so rebuilding the map here is in time.
+	"""
+	from sigzen_ai_scan_crm_connector.brand_rename import refresh_module_map
+	from sigzen_ai_scan_crm_connector.upgrade.from_vc_connector import before_install as rename_old_install
+
+	refresh_module_map()
+	return rename_old_install()
+
+
 def after_install():
 	settle_install_time_migration_state()
 	setup_connector_fields()

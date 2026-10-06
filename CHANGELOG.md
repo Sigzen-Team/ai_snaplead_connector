@@ -62,6 +62,15 @@ those fields. A lead was also delivered over HTTP on the fresh MariaDB site by a
 user holding only the two recommended roles, through both the current API path and the
 `vc_connector` one.
 
+### Install on a bench with a stale module cache
+
+* `bench install-app` failed with "Lead: Options must be a valid DocType for field Email IDs"
+  on a bench whose cached app -> modules map predated the app (fetched or renamed without a
+  `bench clear-cache`): frappe synced none of the app's DocTypes, printed 100% anyway, and
+  after_install then linked Lead to child tables that did not exist. `before_install` now
+  rebuilds that map first. A site left half-installed by the old failure (app listed, no
+  DocTypes) is completed by `bench --site <site> migrate`.
+
 ### No more "VC" in the Desk
 
 * The app's DocTypes and role dropped the "VC" prefix: `Connector Settings`, `Connector Log`,

@@ -141,7 +141,7 @@ class TestTheOldNameStillLoads(IntegrationTestCase):
 	def test_the_real_app_renames_instead_of_installing_twice(self):
 		self.assertEqual(
 			frappe.get_hooks("before_install", app_name=NEW),
-			[f"{NEW}.upgrade.from_vc_connector.before_install"],
+			[f"{NEW}.install.before_install"],
 		)
 
 
@@ -197,3 +197,22 @@ class TestTheVcPrefixIsGone(IntegrationTestCase):
 		brand_rename.rename_doctype("VC Connector Settings", "Connector Settings")
 		brand_rename.rename_role("VC Connector Integration", "Connector Integration")
 		self.assertTrue(frappe.db.exists("DocType", "Connector Settings"))
+
+
+class TestInstallSeesItsOwnDocTypes(IntegrationTestCase):
+	"""install-app syncs only the modules in the cached app -> modules map. A map cached before
+	the app reached the bench made the install skip every DocType of this app and then fail on
+	"Lead: Options must be a valid DocType for field Email IDs"."""
+
+	def test_before_install_rebuilds_a_stale_module_map(self):
+		from sigzen_ai_scan_crm_connector import install
+
+		stale = {app: mods for app, mods in frappe.local.app_modules.items() if app != NEW}
+		frappe.local.app_modules = stale
+		frappe.cache.set_value("app_modules", stale)
+
+		self.assertIsNone(install.before_install())
+
+		self.assertIn(NEW, frappe.local.app_modules)
+		self.assertTrue(frappe.local.app_modules[NEW])
+		self.assertIn(NEW, frappe.cache.get_value("app_modules"))
