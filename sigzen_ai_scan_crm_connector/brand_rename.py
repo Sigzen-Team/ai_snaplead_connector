@@ -78,9 +78,21 @@ def refresh_module_map():
 	would look for `sigzen_ai_scan_crm_connector.sigzen_ai_scan_crm_connector` and die with ModuleNotFoundError on the first
 	migrate after the rename.
 	"""
-	frappe.cache.delete_value("app_modules")
-	frappe.client_cache.delete_value("installed_app_modules")
+	drop_module_map_cache()
 	frappe.setup_module_map(include_all_apps=True)
+
+
+def drop_module_map_cache():
+	"""Forget both cached module maps on any frappe this app installs on.
+
+	frappe 16 keeps `installed_app_modules` in `frappe.client_cache`; frappe 15 has no
+	client_cache and keeps it in `frappe.cache` next to `app_modules`.
+	"""
+	frappe.cache.delete_value("app_modules")
+	frappe.cache.delete_value("installed_app_modules")
+	client_cache = getattr(frappe, "client_cache", None)
+	if client_cache is not None:
+		client_cache.delete_value("installed_app_modules")
 
 
 def _step(fn, *args):

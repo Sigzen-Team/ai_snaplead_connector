@@ -43,6 +43,8 @@ import os
 
 import frappe
 
+from sigzen_ai_scan_crm_connector.brand_rename import drop_module_map_cache
+
 OLD_APP = "vc_connector"
 NEW_APP = "sigzen_ai_scan_crm_connector"
 
@@ -231,8 +233,7 @@ def forget_cached_app_list():
 	frappe.clear_cache()
 	if getattr(frappe.local, "request_cache", None) is not None:
 		frappe.local.request_cache.clear()
-	frappe.cache.delete_value("app_modules")
-	frappe.client_cache.delete_value("installed_app_modules")
+	drop_module_map_cache()
 	frappe.setup_module_map(include_all_apps=True)
 
 
