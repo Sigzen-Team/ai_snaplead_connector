@@ -121,8 +121,8 @@ def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 
 	relinked = 0
 	if mismatched:
-		for name in frappe.db.sql_list(
-			"select name from `tabVC Lead Link` where ifnull(business_id,'') != %s", business_id
+		for name in frappe.get_all(
+			"Connector Lead Link", filters={"business_id": ["!=", business_id]}, pluck="name"
 		):
 			frappe.db.set_value("Connector Lead Link", name, "business_id", business_id, update_modified=False)
 			relinked += 1
