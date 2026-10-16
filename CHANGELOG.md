@@ -22,9 +22,17 @@ breaking change for every central site in the field and gets its own major relea
 - **Renamed to AI SnapLead - Connector.** The product is now AI SnapLead. Package
   `sigzen_ai_scan_crm_connector` -> `ai_snaplead_connector`, module "Sigzen - AI Scan CRM
   Connector" -> "AI SnapLead Connector" (folder `ai_snaplead_connector/ai_snaplead_connector/`),
-  app title, workspace, sidebar and desk tile -> "AI SnapLead - Connector" (route
-  `/desk/ai-snaplead---connector`), assets under `/assets/ai_snaplead_connector/`. The git
-  repository keeps its name.
+  app title, sidebar, desk tile and workspace heading -> "AI SnapLead - Connector", workspace
+  -> "AI SnapLead Connector" (route `/desk/ai-snaplead-connector`), assets under
+  `/assets/ai_snaplead_connector/`. The git repository keeps its name.
+- **Workspace route without "---".** The workspace was named "AI SnapLead - Connector", and a
+  workspace's name is its route: frappe's slug only turns spaces into hyphens, so the URL read
+  `/desk/ai-snaplead---connector`. The workspace is now named "AI SnapLead Connector"
+  (`/desk/ai-snaplead-connector`); the tile, the sidebar header and the heading inside the page
+  still read "AI SnapLead - Connector". `bench migrate` renames an existing site's workspace,
+  sidebar, tile and Link icon (also from the 1.0.0 names), and the old URLs
+  (`/desk/ai-snaplead---connector`, `/desk/sigzen---ai-scan-crm-connector`, `/desk/vc-connector`)
+  answer with a 301 to the new one. The tile opens the workspace in the same tab.
 - A site that has 1.0.0 (or a `vc_connector` development build) installed is converted by a
   plain `bench migrate`: a stand-in package for each old name renames the installed app, Module
   Def, Patch Log (no patch runs twice), scheduled jobs, desk records, default apps, asset URLs

@@ -1,5 +1,5 @@
 # Copyright (c) 2026, support@sigzen.com and contributors
-"""Carry an installed client across the rename to "AI SnapLead - Connector".
+"""Carry an installed client across the rename to "AI SnapLead - Connector" (/desk/ai-snaplead-connector).
 
 Runs from the `before_migrate` hook, before any patch of any app and before the model sync.
 
@@ -30,10 +30,27 @@ APP = "ai_snaplead_connector"
 MODULE = "AI SnapLead Connector"
 LEGACY_MODULES = ("Sigzen - AI Scan CRM Connector", "Vc Connector")
 
-#: The workspace. Its NAME is its route and the desktop tile's label, so it moves with the
-#: app title (see hooks.app_title).
-WORKSPACE = "AI SnapLead - Connector"
-LEGACY_WORKSPACES = ("Sigzen - AI Scan CRM Connector", "Sigzen Scan to CRM-ERPNext Connector", "VC Connector")
+#: The workspace. Its NAME is its route (/desk/ai-snaplead-connector: frappe's slug only turns
+#: spaces into hyphens, so a name with " - " in it became /desk/ai-snaplead---connector). Its
+#: label and title carry the same string: desktop.js builds the tile's URL from the workspace
+#: TITLE, and Workspace.before_export forces name = title whenever the two differ.
+WORKSPACE = "AI SnapLead Connector"
+
+#: What a person sees: hooks.app_title, the desk tile's label, the Workspace Sidebar the tile
+#: opens (its header) and the heading inside the workspace. desktop.js finds a tile's sidebar
+#: by the tile's LABEL, so the sidebar is named after the app, not after the workspace.
+APP_LABEL = "AI SnapLead - Connector"
+
+#: Every name the workspace had before, newest first. The first is the visible title it shared
+#: until the route lost its "---"; the rest were app names too.
+LEGACY_WORKSPACES = (
+	APP_LABEL,
+	"Sigzen - AI Scan CRM Connector",
+	"Sigzen Scan to CRM-ERPNext Connector",
+	"VC Connector",
+)
+#: Earlier app titles: the tile, the sidebar and the heading carried these.
+LEGACY_APP_LABELS = tuple(name for name in LEGACY_WORKSPACES if name != APP_LABEL)
 
 #: Doctypes that hold a module name in a column that is NOT a Link, so frappe's rename
 #: helpers never see it.
@@ -60,17 +77,31 @@ def execute():
 		_step(rename_module, legacy, MODULE, APP)
 		_step(repoint_plain_module_columns, legacy, MODULE)
 	_step(ensure_module_def, MODULE, APP)
-	for legacy in LEGACY_WORKSPACES:
-		_step(rename_workspace, legacy, WORKSPACE)
-		_step(rename_app_icon, legacy, WORKSPACE)
-		_step(repoint_icon_links, legacy, WORKSPACE)
-	_step(retire_legacy_link_icons)
+	rename_desk()
 	for legacy, new in LEGACY_DOCTYPES.items():
 		# Not in a savepoint: renaming a table commits (see rename_doctype).
 		_committed_step(rename_doctype, legacy, new)
 	for legacy, new in LEGACY_ROLES.items():
 		_step(rename_role, legacy, new)
 	frappe.clear_cache()
+
+
+def rename_desk():
+	"""Workspace, sidebar, app tile and the workspace's Link icon onto the current names.
+
+	The four stores are independent and `bench migrate` reconciles none of them for a row that
+	already exists: the Workspace (name = route, label, title), the Workspace Sidebar the tile
+	opens (name = title, UNIQUE) with its items' `link_to`, the app's Desktop Icon (label
+	UNIQUE) and the workspace's own hidden Link icon. The heading inside `Workspace.content` is
+	repaired after the sync by install.ensure_workspace.
+	"""
+	for legacy in LEGACY_WORKSPACES:
+		_step(rename_workspace, legacy, WORKSPACE)
+		_step(rename_sidebar, legacy, APP_LABEL)
+		_step(repoint_icon_links, legacy)
+	for legacy in LEGACY_APP_LABELS:
+		_step(rename_app_icon, legacy, APP_LABEL)
+	_step(retire_legacy_link_icons)
 
 
 def refresh_module_map():
@@ -154,20 +185,50 @@ def ensure_module_def(name, app):
 
 
 def rename_workspace(old, new):
-	"""Rename the workspace and its sidebar, keeping the client's own links on the row."""
-	if not frappe.db.exists("Workspace", old):
+	"""Rename the workspace row; its roles, links and shortcuts are child rows and move with it.
+
+	Only the Workspace. Its sidebar is named after the app, not after the workspace, and is
+	handled by rename_sidebar. Returns False when there is nothing to do, so a second run is a
+	no-op.
+	"""
+	if old == new or not frappe.db.exists("Workspace", old):
 		return False
 	if frappe.db.exists("Workspace", new):
 		return False
 
 	frappe.rename_doc("Workspace", old, new, force=True, show_alert=False)
 	frappe.db.set_value("Workspace", new, {"label": new, "title": new}, update_modified=False)
+	repoint_sidebar_items(old, new)
+	return True
 
-	# The sidebar is keyed by name and desktop.js finds it by the tile's label.
-	if frappe.db.exists("Workspace Sidebar", old) and not frappe.db.exists("Workspace Sidebar", new):
-		frappe.rename_doc("Workspace Sidebar", old, new, force=True, show_alert=False)
+
+def repoint_sidebar_items(old, new):
+	"""Sidebar entries that open the workspace by its old name.
+
+	`link_to` is a Dynamic Link, which rename_doc is not guaranteed to follow; an entry left on
+	the old name drops out of the sidebar (is_item_allowed finds no such workspace) and a
+	sidebar with no item left disappears from the desk with its tile.
+	"""
+	table = frappe.qb.DocType("Workspace Sidebar Item")
+	frappe.qb.update(table).set(table.link_to, new).where(
+		(table.link_type == "Workspace") & (table.link_to == old)
+	).run()
+	return True
+
+
+def rename_sidebar(old, new):
+	"""Move the Workspace Sidebar the tile opens onto the app's label.
+
+	`Workspace Sidebar.title` is UNIQUE and is also the row's name, and desktop.js resolves a
+	tile through the sidebar named like the tile's label. Never merges two sidebars: if both
+	exist the client's own one is left where it is.
+	"""
+	if old == new or not frappe.db.exists("Workspace Sidebar", old):
+		return False
 	if frappe.db.exists("Workspace Sidebar", new):
-		frappe.db.set_value("Workspace Sidebar", new, "title", new, update_modified=False)
+		return False
+	frappe.rename_doc("Workspace Sidebar", old, new, force=True, show_alert=False)
+	frappe.db.set_value("Workspace Sidebar", new, "title", new, update_modified=False)
 	return True
 
 
@@ -192,60 +253,62 @@ def rename_app_icon(old, new):
 	return True
 
 
-def repoint_icon_links(old, new):
-	"""Point desktop icons that still open the old workspace at the renamed one.
+def repoint_icon_links(old):
+	"""Point desktop icons that still open an old name at the current one.
 
-	`link_to` names the Workspace Sidebar and `link` holds the old /desk/<slug> route for an
-	External tile; neither is a plain Link field that rename_doc is guaranteed to follow. A tile
-	left on the old name opens nothing.
+	`link_to` names the Workspace Sidebar (now APP_LABEL) and `link` holds the /desk/<slug>
+	route of an External tile (now /desk/ai-snaplead-connector); neither is a plain Link field
+	that rename_doc is guaranteed to follow. A tile left on an old name opens nothing.
 	"""
 	from frappe.utils import slug
 
-	if not frappe.db.exists("Workspace Sidebar", new):
-		return False
-	frappe.db.sql(
-		"""update `tabDesktop Icon` set link_to = %s
-		   where link_to = %s and link_type in ('Workspace Sidebar', 'Workspace')""",
-		(new, old),
-	)
+	if old != APP_LABEL and frappe.db.exists("Workspace Sidebar", APP_LABEL):
+		frappe.db.sql(
+			"""update `tabDesktop Icon` set link_to = %s
+			   where link_to = %s and link_type in ('Workspace Sidebar', 'Workspace')""",
+			(APP_LABEL, old),
+		)
 	frappe.db.sql(
 		"update `tabDesktop Icon` set link = %s where link = %s",
-		(f"/desk/{slug(new)}", f"/desk/{slug(old)}"),
+		(f"/desk/{slug(WORKSPACE)}", f"/desk/{slug(old)}"),
 	)
 	return True
 
 
 def retire_legacy_link_icons():
-	"""Take the old names off the workspace's hidden Link icon.
+	"""Give the workspace's own hidden Link icon the workspace's name.
 
 	The workspace has its own Link icon besides the app tile. It is hidden, because the tile
-	already opens the workspace, but it still shows in the Desktop Icon list under whatever the
-	app was called when it was created ("VC Connector"), which reads as a second, older
-	connector on the site. It is renamed rather than deleted: with no Link icon at all,
-	install.py would make a fresh one on the next migrate.
+	already opens the workspace. It is LABELLED with the workspace's name on purpose: frappe's
+	create_desktop_icons_from_workspace (run after every app install) skips a workspace that
+	already has a Link icon under its name, and otherwise adds a visible one parented to the
+	app tile -- which turns the tile into a folder. Renamed rather than deleted, and the
+	client's roles on it move with it.
 	"""
-	target = f"{WORKSPACE} workspace"
-	if frappe.db.exists("Desktop Icon", target) or frappe.db.exists("Desktop Icon", {"label": target}):
+	if frappe.db.exists("Desktop Icon", WORKSPACE) or frappe.db.exists("Desktop Icon", {"label": WORKSPACE}):
 		return False
-	# The Link icon carries the workspace's name, or that name plus " workspace" once an earlier
-	# release retired it.
+	# The Link icon carries an old workspace name, or that name plus " workspace" once an
+	# earlier release retired it.
 	legacy_names = set(LEGACY_WORKSPACES) | {f"{name} workspace" for name in LEGACY_WORKSPACES}
-	rows = frappe.db.sql(
-		"""select name, label from `tabDesktop Icon`
-		   where icon_type = 'Link' and link_to = %s order by creation""",
-		(WORKSPACE,),
-		as_dict=True,
+	rows = frappe.get_all(
+		"Desktop Icon",
+		filters={"icon_type": "Link", "link_to": ("in", [APP_LABEL, WORKSPACE, *LEGACY_WORKSPACES])},
+		fields=["name", "label"],
+		order_by="creation asc",
 	)
 	for row in rows:
 		if row.name in legacy_names or row.label in legacy_names:
+			# Hidden and unparented: a visible Link icon whose parent_icon equals the app tile's
+			# label makes desktop.js render the tile as a folder.
 			frappe.db.sql(
-				"update `tabDesktop Icon` set name = %s, label = %s, hidden = 1 where name = %s",
-				(target, target, row.name),
+				"""update `tabDesktop Icon` set name = %s, label = %s, hidden = 1, parent_icon = null
+				   where name = %s""",
+				(WORKSPACE, WORKSPACE, row.name),
 			)
-			frappe.db.sql("update `tabDesktop Icon` set parent_icon = %s where parent_icon = %s", (target, row.name))
+			frappe.db.sql("update `tabDesktop Icon` set parent_icon = %s where parent_icon = %s", (WORKSPACE, row.name))
 			frappe.db.sql(
 				"update `tabHas Role` set parent = %s where parent = %s and parenttype = 'Desktop Icon'",
-				(target, row.name),
+				(WORKSPACE, row.name),
 			)
 			return True
 	return False

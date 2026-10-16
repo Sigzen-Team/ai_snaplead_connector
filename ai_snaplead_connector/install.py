@@ -29,10 +29,25 @@ INTEGRATION_ROLE_PERMISSIONS = {
 }
 
 
-#: The workspace name, which MUST equal its title: desktop.js builds the tile's route
-#: from the workspace TITLE but looks the workspace up by slug(NAME), so any difference
-#: produces a URL that resolves to nothing and drops the user back on the desktop.
-WORKSPACE = "AI SnapLead - Connector"
+#: The workspace's name, label and title -- one string, see brand_rename.WORKSPACE. desktop.js
+#: builds the tile's route from the workspace TITLE but looks the workspace up by slug(NAME),
+#: so any difference produces a URL that resolves to nothing. The route is
+#: /desk/ai-snaplead-connector.
+#:
+#: APP_LABEL ("AI SnapLead - Connector") is what people read: the tile, the sidebar header and
+#: the heading inside the workspace.
+from ai_snaplead_connector.brand_rename import (  # noqa: E402
+	APP_LABEL,
+	LEGACY_APP_LABELS,
+	LEGACY_WORKSPACES,
+	WORKSPACE,
+)
+
+APP = "ai_snaplead_connector"
+
+#: The Workspace Sidebar the app tile opens. desktop.js finds it by the tile's LABEL
+#: (frappe.boot.workspace_sidebar_item[label.toLowerCase()]), so it carries the app's label.
+SIDEBAR = APP_LABEL
 
 
 def before_install():
@@ -100,56 +115,103 @@ def ensure_workspace():
 	install over it would be worse than the problem.
 	"""
 	try:
-		path = frappe.get_app_path(
-			"ai_snaplead_connector", "ai_snaplead_connector", "workspace",
-			"ai_snaplead___connector", "ai_snaplead___connector.json"
-		)
-		_rename_legacy_workspace()
-		repair_legacy_sidebar_labels()
-		if not frappe.db.exists("Workspace", WORKSPACE):
-			from frappe.modules.import_file import import_file_by_path
-
-			import_file_by_path(path, force=True)
-			_ensure_desktop_icon()
-			frappe.db.commit()
-			return True
-
-		# The workspace exists -- but Frappe's model sync does NOT reconcile an existing
-		# Workspace's child tables, so a `roles` change in the JSON never reaches a site
-		# that already has the row. `bench migrate` reports success and changes nothing,
-		# and the tile keeps pointing at a page the user still may not open.
-		# Each repair runs on its own. They were chained, so the first one to raise -- a
-		# UNIQUE collision on a label, say -- was caught by the outer except and the rest
-		# never ran at all, on every migrate, without a word in the log beyond one warning.
-		changed = False
-		for step in (
-			_sync_workspace_roles,
-			_sync_workspace_label,
-			_sync_workspace_header,
-			_ensure_desktop_icon,
-			_parent_icon_to_app,
-			_add_icon_to_saved_layouts,
-		):
-			# A SAVEPOINT, not a plain rollback: this runs inside `bench migrate`, and
-			# discarding the whole open transaction over a cosmetic label would take the
-			# migration's own uncommitted work with it.
-			sp = f"vc_{step.__name__}"
-			frappe.db.savepoint(sp)
-			try:
-				changed = bool(step(path) if step in (
-					_sync_workspace_roles, _sync_workspace_label, _sync_workspace_header
-				) else step()) or changed
-			except Exception:
-				frappe.db.rollback(save_point=sp)
-				frappe.logger("ai_snaplead_connector").warning(
-					f"workspace repair step {step.__name__} failed", exc_info=True
-				)
+		changed = repair_desk()
 		if changed:
+			frappe.clear_cache()
 			frappe.db.commit()
 		return changed
 	except Exception:
 		frappe.logger("ai_snaplead_connector").warning("could not ensure the connector workspace", exc_info=True)
 		return False
+
+
+def repair_desk():
+	"""Bring the workspace, its sidebar, its Link icon and the app tile to the current names.
+
+	Every step is idempotent and runs in its own savepoint; nothing here commits.
+	"""
+	path = workspace_json_path()
+	changed = bool(_in_savepoint(_rename_legacy_workspace))
+	changed = bool(_in_savepoint(repair_legacy_sidebar_labels)) or changed
+	if not frappe.db.exists("Workspace", WORKSPACE):
+		if not path:
+			return changed
+		from frappe.modules.import_file import import_file_by_path
+
+		import_file_by_path(path, force=True)
+		changed = True
+
+	# The workspace exists -- but Frappe's model sync does NOT reconcile an existing
+	# Workspace's child tables, so a `roles` change in the JSON never reaches a site
+	# that already has the row. `bench migrate` reports success and changes nothing,
+	# and the tile keeps pointing at a page the user still may not open.
+	# Each repair runs on its own. They were chained, so the first one to raise -- a
+	# UNIQUE collision on a label, say -- was caught by the outer except and the rest
+	# never ran at all, on every migrate, without a word in the log beyond one warning.
+	for step in (
+		_sync_workspace_roles,
+		_sync_workspace_label,
+		_sync_workspace_header,
+		_ensure_sidebar,
+		_ensure_desktop_icon,
+		_ensure_app_icon,
+		_ensure_sidebar_placeholder,
+		_add_icon_to_saved_layouts,
+	):
+		if step in (_sync_workspace_roles, _sync_workspace_label, _sync_workspace_header):
+			if not path:
+				continue
+			args = (path,)
+		else:
+			args = ()
+		changed = bool(_in_savepoint(step, *args)) or changed
+	return changed
+
+
+def _in_savepoint(step, *args):
+	"""Run one repair step; on failure roll back THAT step only and carry on.
+
+	A SAVEPOINT, not a plain rollback: this runs inside `bench migrate`, and discarding the
+	whole open transaction over a cosmetic label would take the migration's own uncommitted
+	work with it.
+	"""
+	sp = f"vc_{step.__name__}"
+	frappe.db.savepoint(sp)
+	try:
+		return step(*args)
+	except Exception:
+		frappe.db.rollback(save_point=sp)
+		frappe.logger("ai_snaplead_connector").warning(f"workspace repair step {step.__name__} failed", exc_info=True)
+		return False
+
+
+def workspace_json_path():
+	"""The workspace JSON this app ships, found by the name it DECLARES.
+
+	Not by frappe.scrub(WORKSPACE): a folder that was not renamed with the workspace would
+	resolve to a path that does not exist, and every repair that reads the file would quietly
+	do nothing.
+	"""
+	import json
+	import os
+
+	folder = frappe.get_app_path(APP, "ai_snaplead_connector", "workspace")
+	expected = os.path.join(folder, frappe.scrub(WORKSPACE), f"{frappe.scrub(WORKSPACE)}.json")
+	candidates = [expected]
+	if os.path.isdir(folder):
+		candidates += sorted(
+			os.path.join(folder, entry, f"{entry}.json") for entry in os.listdir(folder) if entry != frappe.scrub(WORKSPACE)
+		)
+	for candidate in candidates:
+		if not os.path.isfile(candidate):
+			continue
+		try:
+			with open(candidate) as handle:  # nosemgrep - a path inside this app's own workspace folder, never from input
+				if json.load(handle).get("name") == WORKSPACE:
+					return candidate
+		except ValueError:
+			continue
+	return None
 
 
 def _sync_workspace_roles(path):
@@ -515,89 +577,262 @@ def create_custom_fields():
 
 
 def workspace_is_on_the_desk():
-	"""Whether some Desktop Icon already opens the workspace.
+	"""Whether some visible Desktop Icon opens the workspace's sidebar.
 
-	Two shapes count. An older install has the workspace's own Link icon. A FRESH install
-	has only the app tile: the app title and the workspace share one name, Desktop Icon.label
-	is UNIQUE, so frappe cannot create a second icon under that label and the tile is the one
-	that opens the workspace. Looking only for the Link icon made every migrate on a fresh
-	site try to create it again, fail on the label, and report that it had changed something.
+	That is the app tile: the workspace's own Link icon is hidden on purpose (the tile opens
+	the same page, and a visible one would turn the tile into a folder).
 	"""
-	if frappe.db.exists("Desktop Icon", {"link_to": WORKSPACE, "icon_type": "Link"}):
-		return True
 	return bool(
 		frappe.db.exists(
 			"Desktop Icon",
-			{
-				"app": "ai_snaplead_connector",
-				"icon_type": "App",
-				"link_type": "Workspace Sidebar",
-				"link_to": WORKSPACE,
-				"hidden": 0,
-			},
+			{"link_type": "Workspace Sidebar", "link_to": SIDEBAR, "hidden": 0},
 		)
 	)
 
 
-def _ensure_desktop_icon():
-	"""A public workspace with no Desktop Icon row is simply not on the client's desk.
+def _ensure_sidebar():
+	"""The Workspace Sidebar the tile opens, with the workspace as its FIRST link.
 
-	Desktop Icon records are created ONCE, by after_app_install, so a client who installed
-	this app before the workspace existed -- or whose icon pass died -- has the workspace in
-	the sidebar and nothing on the desk, with no error to explain the difference.
-
-	The icon pass dies easily: create_desktop_icons() reads app_details[0]["logo"] with no
-	default and runs that pass before the workspace one, so any installed app lacking a
-	"logo" in add_to_apps_screen takes out desktop icons for the ENTIRE site, inside a
-	caller whose except block only print()s. This app now declares a logo; this repairs the
-	clients who installed it while it did not.
-
-	Idempotent, mirrors frappe's own add_workspace_to_desktop().
+	desktop.js sends a "Workspace Sidebar" tile to the sidebar's first Link entry, so the
+	entry for the workspace is put at the top when a client's sidebar lacks it; the rest of
+	the client's entries are kept.
 	"""
-	if workspace_is_on_the_desk():
+	if not frappe.db.exists("Workspace", WORKSPACE):
 		return False
 
-	row = frappe.db.get_value("Workspace", WORKSPACE, ["icon", "public"], as_dict=True)
-	if not row or not row.public:
+	if not frappe.db.exists("Workspace Sidebar", SIDEBAR):
+		# A sidebar frappe built under the workspace's own name: rename it, keeping its entries.
+		if frappe.db.exists("Workspace Sidebar", WORKSPACE):
+			from ai_snaplead_connector.brand_rename import rename_sidebar
+
+			rename_sidebar(WORKSPACE, SIDEBAR)
+		else:
+			sidebar = frappe.new_doc("Workspace Sidebar")
+			sidebar.title = SIDEBAR
+			sidebar.header_icon = frappe.db.get_value("Workspace", WORKSPACE, "icon")
+			sidebar.module = frappe.db.get_value("Workspace", WORKSPACE, "module")
+			sidebar.append("items", {"label": "Home", "type": "Link", "link_type": "Workspace", "link_to": WORKSPACE})
+			sidebar.insert(ignore_permissions=True)
+			return True
+
+	items = frappe.get_all(
+		"Workspace Sidebar Item",
+		filters={"parent": SIDEBAR, "parenttype": "Workspace Sidebar"},
+		fields=["name", "type", "link_type", "link_to"],
+		order_by="idx asc",
+	)
+	first_link = next((item for item in items if item.type == "Link"), None)
+	if first_link and first_link.link_type == "Workspace" and first_link.link_to == WORKSPACE:
 		return False
 
-	# Delegate to frappe's own helper rather than inserting the row here. Desktop Icon's
-	# link_to is validated against WORKSPACE SIDEBAR, not Workspace, so a hand-rolled insert
-	# dies with "Could not find Link To" on any site that has no sidebar record for the
-	# workspace yet -- which is every client that installed before the sidebar existed.
-	# add_workspace_to_desktop() creates the sidebar first, then the icon.
-	from frappe.desk.doctype.desktop_icon.desktop_icon import add_workspace_to_desktop
-
-	add_workspace_to_desktop(WORKSPACE)
-	if row.icon:
-		frappe.db.set_value(
-			"Desktop Icon",
-			{"link_to": WORKSPACE, "icon_type": "Link"},
-			"icon",
-			row.icon,
-			update_modified=False,
-		)
+	existing = next(
+		(item for item in items if item.link_type == "Workspace" and item.link_to == WORKSPACE), None
+	)
+	table = frappe.qb.DocType("Workspace Sidebar Item")
+	frappe.qb.update(table).set(table.idx, table.idx + 1).where(
+		(table.parent == SIDEBAR) & (table.parenttype == "Workspace Sidebar")
+	).run()
+	if existing:
+		frappe.db.set_value("Workspace Sidebar Item", existing.name, "idx", 0, update_modified=False)
+	else:
+		frappe.get_doc(
+			{
+				"doctype": "Workspace Sidebar Item",
+				"parent": SIDEBAR,
+				"parenttype": "Workspace Sidebar",
+				"parentfield": "items",
+				"idx": 0,
+				"label": "Home",
+				"type": "Link",
+				"link_type": "Workspace",
+				"link_to": WORKSPACE,
+			}
+		).db_insert()
 	return True
 
 
+def _ensure_desktop_icon():
+	"""The workspace's own Link icon: present, HIDDEN, unparented, labelled with its name.
+
+	Present, because frappe's create_desktop_icons_from_workspace (run after every app
+	install) otherwise adds one for the workspace -- visible and parented to the app tile.
+	desktop.js groups icons by label, so a visible Link icon whose parent_icon equals the
+	tile's label turns the tile into a folder ("1 Workspaces") with no link. Hidden, because the
+	tile already opens the workspace. The app ships it (desktop_icon/ai_snaplead_connector.json);
+	this repairs a site where it went missing or was changed.
+	"""
+	if not frappe.db.exists("Workspace Sidebar", SIDEBAR):
+		return False
+
+	row = frappe.db.get_value(
+		"Desktop Icon",
+		{"label": WORKSPACE},
+		["name", "icon_type", "hidden", "parent_icon", "link_type", "link_to"],
+		as_dict=True,
+	)
+	if row:
+		if row.icon_type != "Link":
+			return False
+		if row.hidden and not row.parent_icon and row.link_type == "Workspace Sidebar" and row.link_to == SIDEBAR:
+			return False
+		frappe.db.set_value(
+			"Desktop Icon",
+			row.name,
+			{"hidden": 1, "parent_icon": None, "link_type": "Workspace Sidebar", "link_to": SIDEBAR},
+			update_modified=False,
+		)
+		_clear_desk_caches()
+		return True
+
+	icon = frappe.new_doc("Desktop Icon")
+	icon.name = icon.label = WORKSPACE
+	icon.icon_type = "Link"
+	icon.link_type = "Workspace Sidebar"
+	icon.link_to = SIDEBAR
+	icon.icon = frappe.db.get_value("Workspace", WORKSPACE, "icon")
+	icon.hidden = 1
+	icon.standard = 0
+	# db_insert: the controller exports a standard icon to this app's folder in developer_mode.
+	icon.db_insert()
+	_clear_desk_caches()
+	return True
+
+
+def _ensure_app_icon():
+	"""The app tile: labelled with the app title, opening the sidebar IN THE SAME TAB.
+
+	link_type "Workspace Sidebar", never "External". desktop.js get_route() turns an External
+	tile's relative link into `window.location.origin + link`, and setup_click() sets
+	target="_blank" on anything starting with http -- so an External tile opens a new window.
+	"""
+	entries = frappe.get_hooks("add_to_apps_screen", app_name=APP)
+	if not entries:
+		return False
+	entry = entries[0]
+	sidebar_ready = bool(frappe.db.exists("Workspace Sidebar", SIDEBAR))
+	link = {"link_type": "Workspace Sidebar", "link_to": SIDEBAR, "link": ""} if sidebar_ready else {
+		"link_type": "External",
+		"link_to": None,
+		"link": entry.get("route"),
+	}
+
+	existing = frappe.db.get_value(
+		"Desktop Icon",
+		{"icon_type": "App", "app": APP},
+		["name", "label", "link_type", "link_to", "link"],
+		as_dict=True,
+	)
+	if existing:
+		changes = {}
+		# Desktop Icon.label is UNIQUE: never hand it a label another row holds.
+		if existing.label != APP_LABEL and not frappe.db.exists("Desktop Icon", {"label": APP_LABEL}):
+			changes["label"] = APP_LABEL
+		if (existing.link_type, existing.link_to or None, existing.link or "") != (
+			link["link_type"],
+			link["link_to"],
+			link["link"] or "",
+		):
+			changes.update(link)
+		if not changes:
+			return False
+		frappe.db.set_value("Desktop Icon", existing.name, changes, update_modified=False)
+		_clear_desk_caches()
+		return True
+
+	if frappe.db.exists("Desktop Icon", {"label": APP_LABEL}):
+		return False
+	icon = frappe.new_doc("Desktop Icon")
+	icon.name = icon.label = APP_LABEL
+	icon.icon_type = "App"
+	icon.app = APP
+	icon.logo_url = entry.get("logo")
+	icon.bg_color = "gray"
+	icon.standard = 1
+	icon.update(link)
+	# db_insert: the controller would export this standard icon over the shipped JSON.
+	icon.db_insert()
+	_clear_desk_caches()
+	return True
+
+
+def _ensure_sidebar_placeholder():
+	"""An EMPTY Workspace Sidebar under the workspace's name, so that nothing else takes it.
+
+	The workspace and the module share the name "AI SnapLead Connector", and frappe fills a
+	missing sidebar of that name twice over: boot's auto_generate_sidebar_from_module builds one
+	for every module without a sidebar, and create_workspace_sidebar_for_workspaces (after every
+	app install) builds one for every public workspace without one. The desk's
+	set_workspace_sidebar prefers the sidebar NAMED like the workspace, so a visit to
+	/desk/ai-snaplead-connector by URL -- a bookmark, the old-route redirect, a breadcrumb --
+	showed that generated list under the header "AI SnapLead Connector" instead of the app's
+	own sidebar.
+
+	Empty is the point: get_sidebar_items drops a sidebar with no item from the boot payload,
+	so the desk falls through to the sidebar that LINKS to the workspace, the app's own. A
+	sidebar under this name holding only what frappe generates (the workspace and its
+	shortcuts) is emptied; one a client edited is left alone. Plain writes: the controller
+	exports and deletes files in developer_mode.
+	"""
+	if WORKSPACE == SIDEBAR or not frappe.db.exists("Workspace Sidebar", SIDEBAR):
+		return False
+
+	row = frappe.db.get_value("Workspace Sidebar", WORKSPACE, ["name", "for_user", "standard"], as_dict=True)
+	if not row:
+		doc = frappe.new_doc("Workspace Sidebar")
+		doc.name = doc.title = WORKSPACE
+		doc.standard = 0
+		doc.db_insert()
+		_clear_desk_caches()
+		return True
+	if row.for_user or row.standard:
+		return False
+
+	items = frappe.get_all(
+		"Workspace Sidebar Item",
+		filters={"parent": WORKSPACE, "parenttype": "Workspace Sidebar"},
+		fields=["type", "link_to"],
+	)
+	if not items:
+		return False
+	generated = {WORKSPACE} | set(
+		frappe.get_all(
+			"Workspace Shortcut", filters={"parent": WORKSPACE, "parenttype": "Workspace"}, pluck="link_to"
+		)
+	)
+	if any(item.type != "Section Break" and item.link_to not in generated for item in items):
+		return False
+
+	frappe.db.delete("Workspace Sidebar Item", {"parent": WORKSPACE, "parenttype": "Workspace Sidebar"})
+	table = frappe.qb.DocType("Desktop Icon")
+	frappe.qb.update(table).set(table.link_to, SIDEBAR).where(
+		(table.link_type == "Workspace Sidebar") & (table.link_to == WORKSPACE)
+	).run()
+	_clear_desk_caches()
+	return True
+
+
+def _clear_desk_caches():
+	"""Desktop icons and the sidebar map are cached per user inside bootinfo."""
+	frappe.cache.delete_key("desktop_icons")
+	frappe.cache.delete_key("bootinfo")
+
+
 def _sync_workspace_header(path):
-	"""Rewrite the in-page heading when it still carries the old app name.
+	"""Rewrite the in-page heading when it still carries an old app name.
 
 	A FOURTH copy of the name: the heading lives inside `Workspace.content`, the editor.js
 	block list. The model sync creates a Workspace once and never reconciles an existing
 	row's content, so on every already-installed client the page kept announcing itself as
 	"VC Connector" under a tile and sidebar that had both been renamed.
 
-	Only the header block is touched, and only while it still holds the legacy text -- a
-	wholesale overwrite would discard any block a client added to their own workspace.
+	The heading carries the app's label (APP_LABEL), not the workspace's name. Only the header
+	block is touched, and only while it still holds a legacy name -- a wholesale overwrite
+	would discard any block a client added to their own workspace.
 	"""
 	import json
 
 	with open(path) as handle:  # nosemgrep - path is built from frappe.get_app_path and fixed names inside this app, never from input
 		declared = json.load(handle)
-	label = declared.get("label") or declared.get("title")
-	if not label:
-		return False
 
 	raw = frappe.db.get_value("Workspace", WORKSPACE, "content")
 	if not raw:
@@ -618,9 +853,9 @@ def _sync_workspace_header(path):
 		data = block.get("data") or {}
 		text = data.get("text") or ""
 		if block.get("type") == "header":
-			legacy = next((name for name in LEGACY_WORKSPACES if name in text), None)
-			if legacy and label not in text:
-				data["text"] = text.replace(legacy, label)
+			legacy = next((name for name in LEGACY_APP_LABELS if name in text), None)
+			if legacy and APP_LABEL not in text:
+				data["text"] = text.replace(legacy, APP_LABEL)
 				changed = True
 			continue
 
@@ -644,16 +879,11 @@ def _sync_workspace_header(path):
 
 
 def _sync_workspace_label(path):
-	"""Push the JSON's label/title onto a workspace a site already has.
+	"""Push the JSON's label/title onto the workspace, and the app's label onto its sidebar.
 
 	The model sync creates a Workspace once and then leaves it alone, so renaming the app
 	changed nothing on any site that was already installed -- which is every existing
-	client. The sidebar entry and the Desk tile kept the old name while the /apps listing
-	showed the new one.
-
-	Only label and title move. `name` is the primary key AND the route: the Desk builds
-	frappe.workspaces keyed by slug(page.name), so renaming it would break every link to
-	this workspace and the tile that points at it.
+	client. The `name` itself is moved by brand_rename.rename_workspace.
 	"""
 	import json
 
@@ -676,30 +906,13 @@ def _sync_workspace_label(path):
 		)
 		changed = True
 
-	# The Desk tile carries its own copy of the name. `tabDesktop Icon.label` is UNIQUE, so
-	# this must never hand a second row a label another row already holds -- the IntegrityError
-	# was escaping into ensure_workspace's except and silently abandoning every repair after
-	# this one, which is why the tile kept its old routing however often migrate ran.
-	holder = frappe.db.get_value("Desktop Icon", {"label": label}, "name")
-	icon = frappe.db.exists(
-		"Desktop Icon", {"link_to": WORKSPACE, "icon_type": "Link", "hidden": 0}
-	)
+	# The SIDEBAR's header reads its own copy: `Workspace Sidebar` is its own doctype, created
+	# once and never revisited.
 	if (
-		icon
-		and not holder
-		and frappe.db.get_value("Desktop Icon", icon, "label") not in (label, WORKSPACE)
+		frappe.db.exists("Workspace Sidebar", SIDEBAR)
+		and frappe.db.get_value("Workspace Sidebar", SIDEBAR, "title") != SIDEBAR
 	):
-		frappe.db.set_value("Desktop Icon", icon, "label", label, update_modified=False)
-		changed = True
-
-	# And the SIDEBAR reads a third copy: `Workspace Sidebar` is its own doctype, created
-	# once and never revisited, so a rename left the sidebar -- where a client actually
-	# looks -- still showing the old name.
-	if (
-		frappe.db.exists("Workspace Sidebar", WORKSPACE)
-		and frappe.db.get_value("Workspace Sidebar", WORKSPACE, "title") != label
-	):
-		frappe.db.set_value("Workspace Sidebar", WORKSPACE, "title", label, update_modified=False)
+		frappe.db.set_value("Workspace Sidebar", SIDEBAR, "title", SIDEBAR, update_modified=False)
 		changed = True
 
 	if changed:
@@ -707,89 +920,6 @@ def _sync_workspace_label(path):
 	return changed
 
 
-def _ensure_app_icon():
-	"""The App-type Desktop Icon this app's workspace icon hangs under.
-
-	The desktop groups Link icons beneath their app's App icon. Without one the workspace
-	icon exists with hidden=0 and never renders -- ERPNext's "Assets" carries
-	parent_icon="ERPNext", ours carried nothing, so a client saw every other app on their
-	desk and not this one.
-
-	frappe builds these in create_desktop_icons_from_installed_apps(), which reads
-	app_details[0]["logo"] with no default; while this app declared no logo that pass died
-	on KeyError before creating anything. The logo is declared now.
-	"""
-	entries = frappe.get_hooks("add_to_apps_screen", app_name="ai_snaplead_connector")
-	if not entries:
-		return None
-	entry = entries[0]
-	label = frappe.get_hooks("app_title", app_name="ai_snaplead_connector")[0]
-
-	existing = frappe.db.exists("Desktop Icon", {"icon_type": "App", "app": "ai_snaplead_connector"})
-	if existing:
-		if frappe.db.get_value("Desktop Icon", existing, "label") != label:
-			frappe.db.set_value("Desktop Icon", existing, "label", label, update_modified=False)
-		if frappe.db.exists("Workspace Sidebar", label):
-			row = frappe.db.get_value("Desktop Icon", existing, ["link_type", "link_to"], as_dict=True)
-			if row.link_type != "Workspace Sidebar" or row.link_to != label:
-				frappe.db.set_value(
-					"Desktop Icon",
-					existing,
-					{"link_type": "Workspace Sidebar", "link_to": label, "link": ""},
-					update_modified=False,
-				)
-				frappe.clear_cache()
-		return existing
-
-	# Desktop Icon.label carries a UNIQUE index, and this app's title is the same string as
-	# its workspace's label -- so the App icon cannot be created while the workspace's own
-	# Link icon holds that label. frappe hits the same case in
-	# create_desktop_icons_from_workspace and resolves it by HIDING the child when a desk app
-	# has one workspace named after itself: the App tile links straight to the workspace
-	# route, so showing both would be the same name twice on one desk.
-	clash = frappe.db.exists("Desktop Icon", {"label": label, "icon_type": "Link"})
-	if clash:
-		# Hiding alone is not enough: the UNIQUE index is on `label` whatever `hidden` says,
-		# so the row has to stop HOLDING the string before the App icon can take it. The
-		# child keeps the workspace's own name and is hidden, because the App tile already
-		# links to /desk/vc-connector and two tiles with one name on a desk helps nobody.
-		frappe.db.set_value(
-			"Desktop Icon", clash, {"label": WORKSPACE, "hidden": 1}, update_modified=False
-		)
-
-	icon = frappe.new_doc("Desktop Icon")
-	icon.label = label
-	icon.icon_type = "App"
-	icon.app = "ai_snaplead_connector"
-	icon.logo_url = entry.get("logo")
-	icon.standard = 1
-	_point_app_icon(icon, entry, label)
-	icon.insert(ignore_permissions=True, ignore_if_duplicate=True)
-	return icon.name
-
-
-def _parent_icon_to_app():
-	"""Hang the workspace icon under the app icon, so the client's desktop shows it."""
-	try:
-		app_icon = _ensure_app_icon()
-		if not app_icon:
-			return False
-		row = frappe.db.get_value(
-			"Desktop Icon",
-			{"link_to": WORKSPACE, "icon_type": "Link"},
-			["name", "parent_icon", "hidden"],
-			as_dict=True,
-		)
-		if not row or row.hidden or row.parent_icon == app_icon:
-			return False
-		frappe.db.set_value("Desktop Icon", row.name, "parent_icon", app_icon, update_modified=False)
-		frappe.clear_cache()
-		return True
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not parent the connector desktop icon", exc_info=True)
-		return False
-
-
 def _add_icon_to_saved_layouts():
 	"""Put this app's icon into every saved Desktop Layout.
 
@@ -797,384 +927,91 @@ def _add_icon_to_saved_layouts():
 	desktop.js does `frappe.desktop_icons = this.data` and only falls back to boot when that
 	is empty. `Desktop Layout` stores that per user as frozen JSON, captured the last time
 	the desk was arranged -- so an icon created by a later release is in the boot payload and
-	still never appears. On this bench the layout held 36 entries and the connector was not
-	one of them.
+	still never appears.
 
-	Appending keeps the arrangement the user chose. Wiping the row would work too and is
-	what "just reset it" would mean, but it would throw away every deliberate placement on
-	the site to deliver one new icon.
+	Appending keeps the arrangement the user chose. A stored entry for the tile is REPLACED,
+	never skipped: it keeps whatever link_type and link it was stored with (an External
+	/desk/ai-snaplead---connector, say), which is how a tile kept opening a new tab long after
+	the icon itself was fixed.
 	"""
-	try:
-		import json
+	import json
 
-		icon = frappe.db.get_value(
-			"Desktop Icon",
-			{"icon_type": "App", "app": "ai_snaplead_connector"},
-			["name", "label", "app", "icon_type", "link_type", "link", "link_to", "logo_url",
-			 "icon", "icon_image", "bg_color", "idx", "hidden", "standard"],
-			as_dict=True,
-		)
-		if not icon:
-			return 0
-
-		updated = 0
-		for row in frappe.get_all("Desktop Layout", fields=["name", "layout"]):
-			try:
-				layout = json.loads(row.layout or "[]")
-			except Exception:
-				continue
-			if not isinstance(layout, list):
-				continue
-
-			fresh = dict(icon)
-			changed = False
-			found = False
-			for i, entry in enumerate(layout):
-				if (entry or {}).get("label") != icon.label:
-					continue
-				found = True
-				# REPLACE, never skip. The saved layout is what the desktop renders, so a
-				# stale entry keeps whatever link_type it was stored with -- which is how
-				# the tile kept opening a new tab long after the icon itself was fixed.
-				merged = dict(fresh)
-				merged["child_icons"] = entry.get("child_icons") or []
-				if merged != entry:
-					layout[i] = merged
-					changed = True
-				break
-
-			if not found:
-				fresh["child_icons"] = []
-				layout.append(fresh)
-				changed = True
-
-			if changed:
-				frappe.db.set_value(
-					"Desktop Layout", row.name, "layout", json.dumps(layout), update_modified=False
-				)
-				updated += 1
-
-		if updated:
-			frappe.clear_cache()
-		return updated
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not add the icon to saved layouts", exc_info=True)
+	icon = frappe.db.get_value(
+		"Desktop Icon",
+		{"icon_type": "App", "app": APP},
+		["name", "label", "app", "icon_type", "link_type", "link", "link_to", "logo_url",
+		 "icon", "icon_image", "bg_color", "idx", "hidden", "standard"],
+		as_dict=True,
+	)
+	if not icon:
 		return 0
 
-
-def _point_app_icon(icon, entry, label):
-	"""In-tab navigation, which only works when the sidebar key matches the tile label.
-
-	desktop.js resolves a "Workspace Sidebar" icon through
-	frappe.boot.workspace_sidebar_item[icon.label.toLowerCase()] -- keyed by the sidebar's
-	NAME -- and then builds the URL from the workspace's TITLE while looking the workspace up
-	by slug(NAME). All three have to agree, which is why the workspace is named after the
-	app rather than carrying a separate display label.
-
-	The alternative, "External", is what opened a new window: get_route() turns a relative
-	link into `window.location.origin + link` and setup_click() sets target="_blank" on
-	anything starting with http.
-	"""
-	if frappe.db.exists("Workspace Sidebar", label):
-		icon.link_type = "Workspace Sidebar"
-		icon.link_to = label
-		icon.link = ""
-	else:
-		icon.link_type = "External"
-		icon.link = entry.get("route")
-
-
-def _parent_icon_to_app():
-	"""Hang the workspace icon under the app icon, so the client's desktop shows it."""
-	try:
-		app_icon = _ensure_app_icon()
-		if not app_icon:
-			return False
-		row = frappe.db.get_value(
-			"Desktop Icon",
-			{"link_to": WORKSPACE, "icon_type": "Link"},
-			["name", "parent_icon", "hidden"],
-			as_dict=True,
-		)
-		if not row or row.hidden or row.parent_icon == app_icon:
-			return False
-		frappe.db.set_value("Desktop Icon", row.name, "parent_icon", app_icon, update_modified=False)
-		frappe.clear_cache()
-		return True
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not parent the connector desktop icon", exc_info=True)
-		return False
-
-
-def _add_icon_to_saved_layouts():
-	"""Put this app's icon into every saved Desktop Layout.
-
-	The desktop does NOT render frappe.boot.desktop_icons when the user has a saved layout:
-	desktop.js does `frappe.desktop_icons = this.data` and only falls back to boot when that
-	is empty. `Desktop Layout` stores that per user as frozen JSON, captured the last time
-	the desk was arranged -- so an icon created by a later release is in the boot payload and
-	still never appears. On this bench the layout held 36 entries and the connector was not
-	one of them.
-
-	Appending keeps the arrangement the user chose. Wiping the row would work too and is
-	what "just reset it" would mean, but it would throw away every deliberate placement on
-	the site to deliver one new icon.
-	"""
-	try:
-		import json
-
-		icon = frappe.db.get_value(
-			"Desktop Icon",
-			{"icon_type": "App", "app": "ai_snaplead_connector"},
-			["name", "label", "app", "icon_type", "link_type", "link", "link_to", "logo_url",
-			 "icon", "icon_image", "bg_color", "idx", "hidden", "standard"],
-			as_dict=True,
-		)
-		if not icon:
-			return 0
-
-		updated = 0
-		for row in frappe.get_all("Desktop Layout", fields=["name", "layout"]):
-			try:
-				layout = json.loads(row.layout or "[]")
-			except Exception:
-				continue
-			if not isinstance(layout, list):
-				continue
-
-			fresh = dict(icon)
-			changed = False
-			found = False
-			for i, entry in enumerate(layout):
-				if (entry or {}).get("label") != icon.label:
-					continue
-				found = True
-				# REPLACE, never skip. The saved layout is what the desktop renders, so a
-				# stale entry keeps whatever link_type it was stored with -- which is how
-				# the tile kept opening a new tab long after the icon itself was fixed.
-				merged = dict(fresh)
-				merged["child_icons"] = entry.get("child_icons") or []
-				if merged != entry:
-					layout[i] = merged
-					changed = True
-				break
-
-			if not found:
-				fresh["child_icons"] = []
-				layout.append(fresh)
-				changed = True
-
-			if changed:
-				frappe.db.set_value(
-					"Desktop Layout", row.name, "layout", json.dumps(layout), update_modified=False
-				)
-				updated += 1
-
-		if updated:
-			frappe.clear_cache()
-		return updated
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not add the icon to saved layouts", exc_info=True)
-		return 0
-
-
-def _point_app_icon(icon, entry, label):
-	"""Aim the tile at the app's workspace.
-
-	link_type stays "External". The alternative was tried end to end and is worse:
-	desktop.js get_route() resolves a "Workspace Sidebar" icon through
-	frappe.boot.workspace_sidebar_item[icon.label.toLowerCase()] and then builds the URL
-	from the SIDEBAR's name -- so with the tile labelled by app title, the click went to
-	/desk/sigzen-scan-to-crm-erpnext-connector, which matches no workspace (frappe.workspaces
-	is keyed by slug(workspace.name) = "vc-connector") and rendered the desktop again.
-
-	Same tab, wrong page is worse than new tab, right page. The new tab itself is stock:
-	get_route() turns a relative link into `window.location.origin + link` and setup_click()
-	sets target="_blank" on anything starting with http, which is why EVERY app tile behaves
-	this way, ERPNext's included. Making ours differ needs the workspace itself renamed so
-	its slug matches the tile, which would change the route every existing client uses.
-	"""
-	icon.link_type = "External"
-	icon.link = entry.get("route")
-
-
-def _parent_icon_to_app():
-	"""Hang the workspace icon under the app icon, so the client's desktop shows it."""
-	try:
-		app_icon = _ensure_app_icon()
-		if not app_icon:
-			return False
-		row = frappe.db.get_value(
-			"Desktop Icon",
-			{"link_to": WORKSPACE, "icon_type": "Link"},
-			["name", "parent_icon", "hidden"],
-			as_dict=True,
-		)
-		if not row or row.hidden or row.parent_icon == app_icon:
-			return False
-		frappe.db.set_value("Desktop Icon", row.name, "parent_icon", app_icon, update_modified=False)
-		frappe.clear_cache()
-		return True
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not parent the connector desktop icon", exc_info=True)
-		return False
-
-
-def _add_icon_to_saved_layouts():
-	"""Put this app's icon into every saved Desktop Layout.
-
-	The desktop does NOT render frappe.boot.desktop_icons when the user has a saved layout:
-	desktop.js does `frappe.desktop_icons = this.data` and only falls back to boot when that
-	is empty. `Desktop Layout` stores that per user as frozen JSON, captured the last time
-	the desk was arranged -- so an icon created by a later release is in the boot payload and
-	still never appears. On this bench the layout held 36 entries and the connector was not
-	one of them.
-
-	Appending keeps the arrangement the user chose. Wiping the row would work too and is
-	what "just reset it" would mean, but it would throw away every deliberate placement on
-	the site to deliver one new icon.
-	"""
-	try:
-		import json
-
-		icon = frappe.db.get_value(
-			"Desktop Icon",
-			{"icon_type": "App", "app": "ai_snaplead_connector"},
-			["name", "label", "app", "icon_type", "link_type", "link", "link_to", "logo_url",
-			 "icon", "icon_image", "bg_color", "idx", "hidden", "standard"],
-			as_dict=True,
-		)
-		if not icon:
-			return 0
-
-		updated = 0
-		for row in frappe.get_all("Desktop Layout", fields=["name", "layout"]):
-			try:
-				layout = json.loads(row.layout or "[]")
-			except Exception:
-				continue
-			if not isinstance(layout, list):
-				continue
-
-			fresh = dict(icon)
-			changed = False
-			found = False
-			for i, entry in enumerate(layout):
-				if (entry or {}).get("label") != icon.label:
-					continue
-				found = True
-				# REPLACE, never skip. The saved layout is what the desktop renders, so a
-				# stale entry keeps whatever link_type it was stored with -- which is how
-				# the tile kept opening a new tab long after the icon itself was fixed.
-				merged = dict(fresh)
-				merged["child_icons"] = entry.get("child_icons") or []
-				if merged != entry:
-					layout[i] = merged
-					changed = True
-				break
-
-			if not found:
-				fresh["child_icons"] = []
-				layout.append(fresh)
-				changed = True
-
-			if changed:
-				frappe.db.set_value(
-					"Desktop Layout", row.name, "layout", json.dumps(layout), update_modified=False
-				)
-				updated += 1
-
-		if updated:
-			frappe.clear_cache()
-		return updated
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not add the icon to saved layouts", exc_info=True)
-		return 0
-
-
-def _sidebar_alias_for(label):
-	"""A Workspace Sidebar record NAMED after the app tile, so the tile can navigate in-tab.
-
-	desktop.js get_route() resolves a "Workspace Sidebar" icon through
-	frappe.boot.workspace_sidebar_item[icon.label.toLowerCase()] -- keyed by the SIDEBAR's
-	name. Our tile is labelled with the app title while the sidebar is named after the
-	workspace, so the lookup missed and the tile refused to navigate at all.
-
-	The alternative, "External", is what makes it open a NEW TAB: get_route() turns a
-	relative link into `window.location.origin + link`, and setup_click() sets
-	target="_blank" on anything starting with http. That is why every app tile spawns a
-	window, ERPNext's included.
-
-	So this adds a second sidebar record under the tile's own name, pointing at the same
-	workspace. Additive: the workspace's own sidebar is untouched.
-	"""
-	if label == WORKSPACE:
-		return WORKSPACE
-	if frappe.db.exists("Workspace Sidebar", label):
-		return label
-
-	# The boot map is keyed by the sidebar's NAME, but this app's sidebar is named after the
-	# workspace ("VC Connector") while the tile is labelled with the app title. A second
-	# record cannot carry that title either -- Workspace Sidebar.title is UNIQUE and the
-	# existing row already holds it. So the record is RENAMED: frappe.rename_doc repoints
-	# the Link fields that reference it, and the sidebar itself is unchanged apart from its
-	# key.
-	existing = frappe.db.get_value("Workspace Sidebar", {"title": label}, "name")
-	if existing and existing != label:
+	stale_labels = {icon.label, *LEGACY_APP_LABELS}
+	updated = 0
+	for row in frappe.get_all("Desktop Layout", fields=["name", "layout"]):
 		try:
-			frappe.rename_doc("Workspace Sidebar", existing, label, force=True, show_alert=False)
-			frappe.clear_cache()
-			return label
-		except Exception:
-			frappe.logger("ai_snaplead_connector").warning("could not rename the sidebar", exc_info=True)
-			return None
-	return existing or None
+			layout = json.loads(row.layout or "[]")
+		except ValueError:
+			continue
+		if not isinstance(layout, list):
+			continue
+
+		changed = False
+		found = False
+		for i, entry in enumerate(layout):
+			if not isinstance(entry, dict) or entry.get("label") not in stale_labels:
+				continue
+			if found:
+				continue
+			found = True
+			merged = dict(icon)
+			merged["child_icons"] = entry.get("child_icons") or []
+			if merged != entry:
+				layout[i] = merged
+				changed = True
+
+		if not found:
+			fresh = dict(icon)
+			fresh["child_icons"] = []
+			layout.append(fresh)
+			changed = True
+
+		if changed:
+			frappe.db.set_value(
+				"Desktop Layout", row.name, "layout", json.dumps(layout), update_modified=False
+			)
+			updated += 1
+
+	if updated:
+		_clear_desk_caches()
+	return updated
 
 
-def _point_app_icon(icon, entry, label):
-	"""Navigate in-tab when we can, and fall back to the stock URL when we cannot."""
-	alias = _sidebar_alias_for(label)
-	if alias:
-		icon.link_type = "Workspace Sidebar"
-		icon.link_to = alias
-		icon.link = ""
-	else:
-		icon.link_type = "External"
-		icon.link = entry.get("route")
-
-
-#: Every name the workspace has carried before this one, newest first. Existing clients
-#: carry one of them, and importing the new JSON beside it would leave them with two
-#: workspaces and two tiles, so the old row is RENAMED -- which also carries its links,
-#: charts and shortcuts. (brand_rename.py does the same before the model sync; this is the
-#: install-time and belt-and-braces copy.)
-LEGACY_WORKSPACES = (
-	"Sigzen - AI Scan CRM Connector",
-	"Sigzen Scan to CRM-ERPNext Connector",
-	"VC Connector",
-)
 #: What the mobile product was called in body copy before it became "AI SnapLead".
 LEGACY_PRODUCT_NAMES = ("AI Scan CRM", "VC Scan", "Sigzen Scan", "SigzenScan")
 
 
 def _rename_legacy_workspace():
-	"""Move a client's existing workspace onto the new name, once."""
-	try:
-		from ai_snaplead_connector import brand_rename
+	"""Move a client's existing workspace, sidebar and Link icon onto the current names, once.
 
-		renamed = False
-		for legacy in LEGACY_WORKSPACES:
-			renamed = bool(brand_rename.rename_workspace(legacy, WORKSPACE)) or renamed
-		if renamed:
-			frappe.clear_cache()
-		return renamed
-	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not rename the legacy workspace", exc_info=True)
-		return False
+	brand_rename.py does the same before the model sync; this is the install-time and
+	belt-and-braces copy.
+	"""
+	from ai_snaplead_connector import brand_rename
+
+	renamed = False
+	for legacy in LEGACY_WORKSPACES:
+		renamed = bool(brand_rename.rename_workspace(legacy, WORKSPACE)) or renamed
+		renamed = bool(brand_rename.rename_sidebar(legacy, SIDEBAR)) or renamed
+		brand_rename.repoint_icon_links(legacy)
+	renamed = bool(brand_rename.retire_legacy_link_icons()) or renamed
+	if renamed:
+		frappe.clear_cache()
+	return renamed
 
 
 def repair_legacy_sidebar_labels():
-	"""Repoint sidebar entries that still SAY the old workspace name.
+	"""Sidebar entries that still SAY an old workspace name are called "Home".
 
 	`frappe.rename_doc` rewrites Link fields, so `Workspace Sidebar Item.link_to` followed
 	the workspace onto its new name -- but `label` is plain Data and nobody rewrites it. A

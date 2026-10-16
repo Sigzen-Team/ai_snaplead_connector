@@ -131,7 +131,7 @@ list, and **Last Request On** in the settings shows when AI SnapLead last reache
 
 ## What the app adds to your site
 
-- A workspace, **AI SnapLead - Connector**, visible to System Managers
+- A workspace, **AI SnapLead - Connector** (`/desk/ai-snaplead-connector`), visible to System Managers
 - **Connector Settings**: pairing and lead routing
 - **Connector Lead Link** and **Connector Source Link**: which incoming record maps to which Lead or source
 - **Connector Log**: one row per delivery

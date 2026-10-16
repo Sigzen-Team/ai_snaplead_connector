@@ -25,12 +25,12 @@ from ai_snaplead_connector import install
 
 class TestWorkspaceRepair(IntegrationTestCase):
 	def test_stale_sidebar_label_is_repaired(self):
-		if not frappe.db.exists("Workspace Sidebar", install.WORKSPACE):
+		if not frappe.db.exists("Workspace Sidebar", install.SIDEBAR):
 			self.skipTest("connector sidebar not present on this site")
 
 		row = frappe.db.get_value(
 			"Workspace Sidebar Item",
-			{"parent": install.WORKSPACE, "link_to": install.WORKSPACE},
+			{"parent": install.SIDEBAR, "link_to": install.WORKSPACE},
 			"name",
 		)
 		if not row:
@@ -63,9 +63,8 @@ class TestWorkspaceRepair(IntegrationTestCase):
 		if not frappe.db.exists("Workspace", install.WORKSPACE):
 			self.skipTest("connector workspace not present on this site")
 
-		path = frappe.get_app_path(
-			"ai_snaplead_connector", "ai_snaplead_connector", "workspace", "ai_snaplead___connector", "ai_snaplead___connector.json"
-		)
+		path = install.workspace_json_path()
+		self.assertTrue(path, "the workspace JSON declaring the workspace's name was not found")
 		original = frappe.db.get_value("Workspace", install.WORKSPACE, "content")
 		self.addCleanup(
 			frappe.db.set_value,
@@ -96,7 +95,7 @@ class TestWorkspaceRepair(IntegrationTestCase):
 		self.assertTrue(headers)
 		self.assertEqual(
 			headers[0]["data"]["text"],
-			f'<span class="h4"><b>{install.WORKSPACE}</b></span>',
+			f'<span class="h4"><b>{install.APP_LABEL}</b></span>',
 		)
 		# A block the client added survives.
 		self.assertIn(mine, after)
@@ -118,19 +117,19 @@ class TestWorkspaceRepair(IntegrationTestCase):
 		# The step AFTER the failing one still ran: the tile is not left on External, which
 		# is what makes it open in a new window.
 		icon = frappe.db.get_value(
-			"Desktop Icon", {"link_to": install.WORKSPACE, "icon_type": "App"}, "link_type"
+			"Desktop Icon", {"link_to": install.SIDEBAR, "icon_type": "App"}, "link_type"
 		)
 		if icon:
 			self.assertEqual(icon, "Workspace Sidebar")
 
 	def test_app_tile_never_routes_externally_when_a_sidebar_exists(self):
 		"""`External` is the one link_type that forces target="_blank"."""
-		if not frappe.db.exists("Workspace Sidebar", install.WORKSPACE):
+		if not frappe.db.exists("Workspace Sidebar", install.SIDEBAR):
 			self.skipTest("connector sidebar not present on this site")
 
 		icon = frappe.db.get_value(
 			"Desktop Icon",
-			{"label": install.WORKSPACE, "icon_type": "App"},
+			{"label": install.APP_LABEL, "icon_type": "App"},
 			["link_type", "link_to"],
 			as_dict=True,
 		)
@@ -166,8 +165,11 @@ class TestBrandRename(IntegrationTestCase):
 			self.assertFalse(brand_rename.rename_workspace(legacy, brand_rename.WORKSPACE))
 
 	def test_tile_label_and_workspace_name_agree(self):
-		"""desktop.js needs the tile label, the sidebar name and the workspace title to match."""
+		"""desktop.js resolves the tile through the sidebar named like the tile's LABEL and builds
+		the URL from the workspace's TITLE, which must slug to the route of its NAME."""
 		title = frappe.get_hooks("app_title", app_name="ai_snaplead_connector")[0]
-		self.assertEqual(title, install.WORKSPACE)
-		if frappe.db.exists("Workspace", title):
-			self.assertEqual(frappe.db.get_value("Workspace", title, "title"), title)
+		self.assertEqual(title, install.APP_LABEL)
+		self.assertEqual(frappe.get_hooks("app_home", app_name="ai_snaplead_connector")[-1], "/desk/ai-snaplead-connector")
+		if frappe.db.exists("Workspace", install.WORKSPACE):
+			row = frappe.db.get_value("Workspace", install.WORKSPACE, ["label", "title"], as_dict=True)
+			self.assertEqual((row.label, row.title), (install.WORKSPACE, install.WORKSPACE))

@@ -36,7 +36,7 @@ required_apps = ["erpnext"]
 # lands on a workspace they are not allowed to open. The client reads that as "the app does
 # not work" / "the workspace was never created", when in fact both exist and they simply
 # cannot see them.
-app_home = "/desk/ai-snaplead---connector"
+app_home = "/desk/ai-snaplead-connector"
 
 add_to_apps_screen = [
 	{
@@ -57,7 +57,7 @@ add_to_apps_screen = [
 		# ^/desk(/.*)?$ -- one /app route makes that False for the WHOLE site, dropping
 		# get_default_path() to "/apps" and flipping boot.is_desk_apps to 0 for every user
 		# on the client's ERPNext, not just for this app.
-		"route": "/desk/ai-snaplead---connector",
+		"route": "/desk/ai-snaplead-connector",
 		"has_permission": "ai_snaplead_connector.install.has_app_permission",
 	}
 ]
@@ -271,7 +271,9 @@ override_whitelisted_methods = {
 
 # Request Events
 # ----------------
-# before_request = ["ai_snaplead_connector.utils.before_request"]
+# The workspace's route lost its "---" (/desk/ai-snaplead---connector -> /desk/ai-snaplead-connector).
+# Not website_redirects: frappe serves /desk/* before it reads those. See utils/renamed_routes.py.
+before_request = ["ai_snaplead_connector.utils.renamed_routes.redirect_renamed_desk_routes"]
 # after_request = ["ai_snaplead_connector.utils.after_request"]
 
 # Job Events

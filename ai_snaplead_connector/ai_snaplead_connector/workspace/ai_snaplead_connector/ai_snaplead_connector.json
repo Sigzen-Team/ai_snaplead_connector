@@ -11,7 +11,7 @@
  "icon": "link",
  "idx": 0,
  "is_hidden": 0,
- "label": "AI SnapLead - Connector",
+ "label": "AI SnapLead Connector",
  "links": [
   {
    "hidden": 0,
@@ -88,7 +88,7 @@
  "modified": "2026-10-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "AI SnapLead Connector",
- "name": "AI SnapLead - Connector",
+ "name": "AI SnapLead Connector",
  "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
@@ -120,6 +120,6 @@
    "type": "DocType"
   }
  ],
- "title": "AI SnapLead - Connector",
+ "title": "AI SnapLead Connector",
  "type": "Workspace"
 }

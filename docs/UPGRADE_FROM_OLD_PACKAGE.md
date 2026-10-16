@@ -87,7 +87,7 @@ Your data is not touched. Only the places that record the app's name change:
 | Patch Log | the app's patches are recorded under the new name, so none of them runs a second time |
 | Scheduled Job Type | any job method under the old package |
 | Desktop Icon, Workspace, Workspace Sidebar, Sidebar Item Group | the `app` they belong to |
-| Workspace, sidebar and desk tile | renamed to "AI SnapLead - Connector" (route `/desk/ai-snaplead---connector`) |
+| Workspace, sidebar and desk tile | the tile, sidebar and heading read "AI SnapLead - Connector"; the workspace is "AI SnapLead Connector" (route `/desk/ai-snaplead-connector`; the old routes redirect) |
 | `/assets/<old name>/...` URLs | logos, saved desktop layouts, files, print formats, letter heads, web pages, settings |
 | User / System Settings default app | if it named the old package |
 | `site_config.json` | the `installed_apps` key, if the site has one |
