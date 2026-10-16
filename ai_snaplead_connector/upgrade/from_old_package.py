@@ -56,6 +56,8 @@ import os
 
 import frappe
 
+from ai_snaplead_connector.brand_rename import drop_module_map_cache
+
 #: Every package name this app was installed under before, newest first.
 OLD_APPS = ("sigzen_ai_scan_crm_connector", "vc_connector")
 #: The default `old` of the single-name helpers below: the release a live client most likely runs.
@@ -348,8 +350,7 @@ def forget_cached_app_list():
 	frappe.clear_cache()
 	if getattr(frappe.local, "request_cache", None) is not None:
 		frappe.local.request_cache.clear()
-	frappe.cache.delete_value("app_modules")
-	frappe.client_cache.delete_value("installed_app_modules")
+	drop_module_map_cache()
 	frappe.setup_module_map(include_all_apps=True)
 
 
