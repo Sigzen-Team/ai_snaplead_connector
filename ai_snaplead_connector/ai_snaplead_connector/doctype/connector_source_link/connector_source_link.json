@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-09-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "vc_uuid",
+  "source",
+  "business_id",
+  "column_break_identity",
+  "last_request_id",
+  "payload_hash",
+  "last_synced_on",
+  "migrated_fields",
+  "response_section",
+  "last_response"
+ ],
+ "fields": [
+  {
+   "description": "Identity of this source on the central AI SnapLead site.",
+   "fieldname": "vc_uuid",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Scan UUID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "ERPNext v16 names this DocType UTM Source; it was Lead Source up to v15.",
+   "fieldname": "source",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source",
+   "options": "UTM Source",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "business_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Business ID",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_request_id",
+   "fieldtype": "Data",
+   "label": "Last Request ID"
+  },
+  {
+   "fieldname": "payload_hash",
+   "fieldtype": "Data",
+   "label": "Payload Hash"
+  },
+  {
+   "fieldname": "last_synced_on",
+   "fieldtype": "Datetime",
+   "label": "Last Synced On"
+  },
+  {
+   "fieldname": "migrated_fields",
+   "fieldtype": "Data",
+   "label": "Migrated Fields"
+  },
+  {
+   "fieldname": "response_section",
+   "fieldtype": "Section Break",
+   "label": "Last Response"
+  },
+  {
+   "fieldname": "last_response",
+   "fieldtype": "Long Text",
+   "label": "Last Response"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-06 12:24:19.000000",
+ "modified_by": "Administrator",
+ "module": "AI SnapLead Connector",
+ "name": "Connector Source Link",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "vc_uuid",
+ "track_changes": 0
+}

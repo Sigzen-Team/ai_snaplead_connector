@@ -29,7 +29,9 @@ release_job:
 
       echo "Merge Request Labels: $LABELS"
 
-    - VERSION_FILE=."/$CI_PROJECT_NAME/__init__.py"
+    # The repository is still named sigzen_ai_scan_crm_connector, but the package is
+    # ai_snaplead_connector (the folder named after the repository is a stand-in with no version).
+    - VERSION_FILE=./ai_snaplead_connector/__init__.py
     # - VERSION=$(git describe --tags $(git rev-list --tags --max-count=1))
     - VERSION=$(git tag --sort=creatordate | tail -n 1)
     - git remote set-url origin http://sigzen:$GITLAB_TOKEN@192.168.1.51/$CI_PROJECT_PATH

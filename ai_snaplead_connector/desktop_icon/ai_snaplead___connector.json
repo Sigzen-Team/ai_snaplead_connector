@@ -1,0 +1,21 @@
+{
+ "app": "ai_snaplead_connector",
+ "bg_color": "gray",
+ "creation": "2026-09-29 17:11:59.502068",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "App",
+ "idx": 0,
+ "label": "AI SnapLead - Connector",
+ "link": "/desk/ai-snaplead---connector",
+ "link_type": "External",
+ "logo_url": "/assets/ai_snaplead_connector/images/vc-connector-logo.svg",
+ "modified": "2026-10-15 12:00:00.000000",
+ "modified_by": "Administrator",
+ "name": "AI SnapLead - Connector",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

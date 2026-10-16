@@ -1,6 +1,7 @@
 # Changelog
 
-All notable changes to `sigzen_ai_scan_crm_connector` are recorded here. The format follows
+All notable changes to `ai_snaplead_connector` (released as `sigzen_ai_scan_crm_connector` up to
+1.0.0) are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -13,6 +14,25 @@ breaking change for every central site in the field and gets its own major relea
 | 1.0.0 | `vc-connector/1` | 16 (verified on 16.25.0 and 16.26.3) | 16 (verified on 16.26.2 and 16.27.0) |
 
 ---
+
+## [Unreleased]
+
+### Changed
+
+- **Renamed to AI SnapLead - Connector.** The product is now AI SnapLead. Package
+  `sigzen_ai_scan_crm_connector` -> `ai_snaplead_connector`, module "Sigzen - AI Scan CRM
+  Connector" -> "AI SnapLead Connector" (folder `ai_snaplead_connector/ai_snaplead_connector/`),
+  app title, workspace, sidebar and desk tile -> "AI SnapLead - Connector" (route
+  `/desk/ai-snaplead---connector`), assets under `/assets/ai_snaplead_connector/`. The git
+  repository keeps its name.
+- A site that has 1.0.0 (or a `vc_connector` development build) installed is converted by a
+  plain `bench migrate`: a stand-in package for each old name renames the installed app, Module
+  Def, Patch Log (no patch runs twice), scheduled jobs, desk records, default apps, asset URLs
+  and `site_config.json`, then `brand_rename.py` renames the module, workspace and tile. See
+  [docs/UPGRADE_FROM_OLD_PACKAGE.md](docs/UPGRADE_FROM_OLD_PACKAGE.md).
+- The old API paths `sigzen_ai_scan_crm_connector.api.v1.*` and `vc_connector.api.v1.*` keep
+  answering. Unchanged: protocol `vc-connector/1`, the `X-VC-Connector-Token` header, DocType,
+  role and field names.
 
 ## [1.0.0] — 2026-09-30
 
@@ -90,7 +110,7 @@ user holding only the two recommended roles, through both the current API path a
 
 Only sites that installed a development build, under the package name `vc_connector`, need
 this, and it takes no script: `bench get-app`, `bench --site all migrate`, `bench remove-app
-vc_connector` (see [docs/UPGRADE_FROM_VC_CONNECTOR.md](docs/UPGRADE_FROM_VC_CONNECTOR.md)). The
+vc_connector` (see [docs/UPGRADE_FROM_OLD_PACKAGE.md](docs/UPGRADE_FROM_OLD_PACKAGE.md)). The
 repository ships a stand-in package named `vc_connector` with no features: it keeps the old
 name importable, so `bench build` no longer fails with "expected str ... not NoneType", and the
 migrate renames the site through it. In the same migrate a

@@ -5,7 +5,7 @@
 # carries on under that name. See vc_connector/__init__.py.
 
 app_name = "vc_connector"
-app_title = "Sigzen - AI Scan CRM Connector (old name, renamed on migrate)"
+app_title = "AI SnapLead - Connector (old name, renamed on migrate)"
 app_publisher = "Sigzen Solutions"
 app_description = "Renames a site that installed the connector as vc_connector."
 app_email = "support@sigzen.com"

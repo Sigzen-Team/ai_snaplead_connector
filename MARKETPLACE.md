@@ -8,8 +8,9 @@ Last reviewed: 2026-09-30, for release 1.0.0.
 
 ## Ready
 
-- [x] **Package name matches the app.** The package is `sigzen_ai_scan_crm_connector`
-      (development builds were `vc_connector`; `docs/UPGRADE_FROM_VC_CONNECTOR.md` covers the
+- [x] **Package name matches the app.** The package is `ai_snaplead_connector`
+      (development builds were `vc_connector`, release 1.0.0 was `sigzen_ai_scan_crm_connector`;
+      `docs/UPGRADE_FROM_OLD_PACKAGE.md` covers the
       few sites that installed one, and the old API paths still answer).
 - [x] **Packaging.** `pyproject.toml` declares the name, licence, description and the supported
       Frappe and ERPNext versions (`[tool.bench.frappe-dependencies]`). `required_apps` lists
@@ -20,7 +21,7 @@ Last reviewed: 2026-09-30, for release 1.0.0.
 - [x] **Documentation.** `docs/REFERENCE.md` (API, error codes, tenancy, duplicate protection),
       `FIELD_MAP.md`, `CHANGELOG.md`.
 - [x] **Identity on the desk.** App title, workspace, sidebar, tile and module are all
-      "Sigzen - AI Scan CRM Connector". A logo is shipped and declared in `add_to_apps_screen`.
+      "AI SnapLead - Connector". A logo is shipped and declared in `add_to_apps_screen`.
 - [x] **Installs cleanly on MariaDB**, the database Frappe Cloud runs: fresh `install-app` on a
       new site, then `migrate`, then the full suite twice.
 - [x] **Tests.** 228 tests, 0 failures on MariaDB and SQLite. The suite leaves no records
@@ -76,5 +77,5 @@ the repository has to be on a host it can reach (GitHub is what the Marketplace 
 
 - [ ] Add the app in the Frappe Cloud dashboard, choose the `master` branch for version 16 and
       confirm it builds
-- [ ] Install it on a Frappe Cloud test site and pair it once with AI Scan CRM end to end
+- [ ] Install it on a Frappe Cloud test site and pair it once with AI SnapLead end to end
 - [ ] Submit for review and answer the reviewer's questions

@@ -11,8 +11,8 @@ Two different maps live in this file and they must not be confused:
    site that ran an older release.
 
 Both are generated from the code that actually performs the mapping:
-`sigzen_ai_scan_crm_connector/api/v1/sync.py` (`LEAD_FIELD_MAP`, `CONTACT_SCHEMA`, `ADDRESS_SCHEMA`,
-`ATTACHMENT_KINDS`) and `sigzen_ai_scan_crm_connector/legacy/schema.py` + `sigzen_ai_scan_crm_connector/legacy/migrate.py`.
+`ai_snaplead_connector/api/v1/sync.py` (`LEAD_FIELD_MAP`, `CONTACT_SCHEMA`, `ADDRESS_SCHEMA`,
+`ATTACHMENT_KINDS`) and `ai_snaplead_connector/legacy/schema.py` + `ai_snaplead_connector/legacy/migrate.py`.
 
 ---
 
@@ -203,6 +203,6 @@ case a client re-ran an older `install.py` between the two.
 ## Undoing it
 
 Every dropped value is archived first, one JSON row per record in `Connector Legacy Field Archive`,
-on the client's own site. `sigzen_ai_scan_crm_connector.legacy.restore.restore` re-creates the Custom Fields
+on the client's own site. `ai_snaplead_connector.legacy.restore.restore` re-creates the Custom Fields
 and writes the values back. See the *Undo* section of `README.md`, including why
 `records_restored: 0` immediately after the drop is the expected result and not a failure.

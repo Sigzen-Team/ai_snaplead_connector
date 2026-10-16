@@ -1,4 +1,4 @@
-# Sigzen - AI Scan CRM Connector: technical reference
+# AI SnapLead - Connector: technical reference
 
 The full reference for administrators and integrators. For what the app is and how to set it
 up, start with the [README](../README.md).
@@ -111,8 +111,8 @@ that never had them it is a no-op.
 ## Install
 
 ```bash
-bench get-app sigzen_ai_scan_crm_connector <repository-url>
-bench --site <site> install-app sigzen_ai_scan_crm_connector
+bench get-app ai_snaplead_connector <repository-url>
+bench --site <site> install-app ai_snaplead_connector
 bench --site <site> migrate
 ```
 
@@ -229,7 +229,7 @@ Manager), `Sales User` has no permission entry on it at all, and "write access" 
 have granted `create` in any case; the combination earlier versions of this README
 recommended did not exist. The shipped role is what replaces it.
 
-`sigzen_ai_scan_crm_connector/tests/test_install.py::TestTheIntegrationRoleExists` pins the role against the
+`ai_snaplead_connector/tests/test_install.py::TestTheIntegrationRoleExists` pins the role against the
 endpoint's own `REQUIRED_PERMISSIONS` list, so the two cannot drift apart.
 
 ### Upgrading an existing client
@@ -253,9 +253,14 @@ Three endpoints, and there is no fourth way in.
 
 | Method | Path | Verb |
 | --- | --- | --- |
-| `ping` | `/api/method/sigzen_ai_scan_crm_connector.api.v1.sync.ping` | GET, POST |
-| `upsert_lead_graph` | `/api/method/sigzen_ai_scan_crm_connector.api.v1.sync.upsert_lead_graph` | POST |
-| `pull_changes` | `/api/method/sigzen_ai_scan_crm_connector.api.v1.sync.pull_changes` | GET, POST |
+| `ping` | `/api/method/ai_snaplead_connector.api.v1.sync.ping` | GET, POST |
+| `upsert_lead_graph` | `/api/method/ai_snaplead_connector.api.v1.sync.upsert_lead_graph` | POST |
+| `pull_changes` | `/api/method/ai_snaplead_connector.api.v1.sync.pull_changes` | GET, POST |
+
+The same three (and the legacy_sync fallbacks) also answer under the app's earlier package
+names, `sigzen_ai_scan_crm_connector.api.v1.*` (release 1.0.0) and `vc_connector.api.v1.*`
+(development builds), through `override_whitelisted_methods` in hooks.py. A central site built
+before a rename keeps working; a current central asks for `ai_snaplead_connector` first.
 
 All three require the API key/secret. `upsert_lead_graph` and `pull_changes` additionally
 require the `X-VC-Connector-Token` header; `ping` does not, so a central site can discover an
@@ -299,7 +304,7 @@ removed from disk, so "partially synced" is not a state this app can be in.
 Post the payload as JSON, either as the body or as a `payload` field:
 
 ```bash
-curl -sS -X POST "https://client.example.com/api/method/sigzen_ai_scan_crm_connector.api.v1.sync.upsert_lead_graph" \
+curl -sS -X POST "https://client.example.com/api/method/ai_snaplead_connector.api.v1.sync.upsert_lead_graph" \
   -H "Authorization: token <api_key>:<api_secret>" \
   -H "X-VC-Connector-Token: <the token>" \
   -H "Content-Type: application/json" \
@@ -458,7 +463,7 @@ Logging can never be the reason a push fails, or turn a 422 into a 500.
 
 ## What it owns
 
-All schema is file-backed under `sigzen_ai_scan_crm_connector/sigzen___ai_scan_crm_connector/doctype/` and is applied by
+All schema is file-backed under `ai_snaplead_connector/ai_snaplead_connector/doctype/` and is applied by
 `bench migrate`'s model sync. Nothing is created imperatively any more.
 
 | DocType | Kind | Purpose |
@@ -489,7 +494,7 @@ Central identity (`vc_uuid`) lives in `Connector Lead Link`, not in a `custom_vc
 
 The central record is the authority for what it sends. It is not the authority for what it does
 not send, and three rules follow from that — all three are pinned by tests in
-`sigzen_ai_scan_crm_connector/tests/test_sync_api.py`:
+`ai_snaplead_connector/tests/test_sync_api.py`:
 
 * **a field the payload omits is not a field the payload cleared.** This covers the WHOLE
   address block — `address_line2`, `city`, `state`, `country` and `pincode`. An address block
@@ -539,7 +544,7 @@ every row already mapped through `Connector Lead Link`.
 
 `Lead.custom_business_id` is kept as a denormalised per-row stamp (existing client sites hold
 real data in that column, and the in-business duplicate guard filters on it), but
-`sigzen_ai_scan_crm_connector.tenancy.get_business_id()` resolves Settings first. With
+`ai_snaplead_connector.tenancy.get_business_id()` resolves Settings first. With
 `reject_business_mismatch` on, a Lead stamped for a different business is refused instead of
 being mixed into this tenant's table. The same check applies to `Connector Lead Link` and
 `Connector Source Link`: they hold the connector's identity map, so a row stamped for a business this
@@ -615,7 +620,7 @@ Nothing used to warn a client that the rule was about to change, so the first th
 was a refused save. Before installing, run:
 
 ```bash
-bench --site <site> execute sigzen_ai_scan_crm_connector.install.report_duplicate_contacts_preflight
+bench --site <site> execute ai_snaplead_connector.install.report_duplicate_contacts_preflight
 ```
 
 It needs nothing installed on the site, names every email address and phone number already
@@ -686,7 +691,7 @@ stock field, but there the value must be adopted, not discarded) needs the datab
 
 ## Adopting the child DocTypes on an older client
 
-`sigzen_ai_scan_crm_connector/patches/v1_0/adopt_file_backed_doctypes.py` runs in `pre_model_sync` and flips
+`ai_snaplead_connector/patches/v1_0/adopt_file_backed_doctypes.py` runs in `pre_model_sync` and flips
 `tabDocType.custom` to `0` (and clears `migration_hash`) for the six child DocTypes that used to
 be created imperatively with `custom = 1`. Model sync then imports the shipped JSON over them
 in place — `import_file` deletes the old row with `for_reload`, so the tables and their rows
@@ -725,7 +730,7 @@ unreachable without running two `bench` commands nothing told them about.
 | legacy Custom Fields present — a re-install over an older version of this app, the only way an install can meet them | **deletes** the `Patch Log` rows install just wrote for the two legacy patches, so the next `bench migrate` runs the migration properly |
 | `legacy_fields_dropped` already set — a site that has finished | nothing at all. That flag *is* the end state, and re-deriving it from what is on the DocType would undo a deliberate `legacy.restore` |
 
-`sigzen_ai_scan_crm_connector/tests/test_install.py` covers all three, and
+`ai_snaplead_connector/tests/test_install.py` covers all three, and
 `TestTheLegacyPatchNamesAreReal` fails the build if a patch is renamed without updating
 `install.LEGACY_PATCHES`.
 
@@ -751,7 +756,7 @@ in `Connector Settings` so an interrupted run resumes instead of restarting. Eve
 idempotent and each migrated Lead gets a mark row, so a re-run is a no-op. A site with no
 background workers will see the job queued and never run — the supported answer is:
 
-	bench --site <site> execute sigzen_ai_scan_crm_connector.legacy.migrate.run_now
+	bench --site <site> execute ai_snaplead_connector.legacy.migrate.run_now
 
 A pincode that disagrees with an Address already on the Lead is **never overwritten**: both are
 kept and a `Connector Log` row records the conflict. Losing nothing beats winning.
@@ -797,12 +802,12 @@ Archive** — one JSON row per record, on the client's own site — and only aft
 the 9 + 4 fields on Lead, the 7 + 3 on Lead Source / UTM Source, and the Property Setters that
 hid stock `Lead.email_id` and `Lead.mobile_no`. To run it by hand:
 
-	bench --site <site> execute sigzen_ai_scan_crm_connector.legacy.drop.run
+	bench --site <site> execute ai_snaplead_connector.legacy.drop.run
 
 ### Undo
 
-	bench --site <site> execute sigzen_ai_scan_crm_connector.legacy.restore.restore
-	bench --site <site> execute sigzen_ai_scan_crm_connector.legacy.restore.restore --kwargs "{'dry_run': True}"
+	bench --site <site> execute ai_snaplead_connector.legacy.restore.restore
+	bench --site <site> execute ai_snaplead_connector.legacy.restore.restore --kwargs "{'dry_run': True}"
 
 This re-creates the Custom Fields and writes every archived value back. It is additive: a value
 already present is not overwritten unless you pass `force=True`, and the Contacts, Addresses,
@@ -817,10 +822,10 @@ which of the two zeroes you are looking at.
 ## Tests
 
 ```bash
-bench --site <site> run-tests --app sigzen_ai_scan_crm_connector
+bench --site <site> run-tests --app ai_snaplead_connector
 ```
 
-The suite is in `sigzen_ai_scan_crm_connector/tests/`:
+The suite is in `ai_snaplead_connector/tests/`:
 
 | File | What it pins |
 | --- | --- |
@@ -831,7 +836,7 @@ The suite is in `sigzen_ai_scan_crm_connector/tests/`:
 | `test_tenancy.py` | business scoping |
 | `test_patches.py` | the DocType adoption patch |
 | `test_schema.py` | the shape of the app itself: nothing custom, nothing hidden, no bulk rewrite |
-| `test_normalisers.py` | the vendored phone/email/pincode/state helpers, with a fixture, and the guard that fails the build if anything imports `sigzen_lead` |
+| `test_normalisers.py` | the vendored phone/email/pincode/state helpers, with a fixture, and the guard that fails the build if anything imports `ai_snaplead` |
 
 Note that the legacy-migration group (`test_legacy_migration.py`) and `test_lead_contacts.py`
 skip themselves on a site where the legacy Custom Fields have already been dropped — there is
