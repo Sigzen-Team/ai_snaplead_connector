@@ -14,18 +14,99 @@ class ConnectorSettings(Document):
 	def validate(self):
 		self.business_id = (self.business_id or "").strip()
 		self.central_site = (self.central_site or "").strip().rstrip("/")
-		self.validate_business_id_is_immutable()
+		self.validate_business_id_change()
 
-	def validate_business_id_is_immutable(self):
-		"""business_id identifies this ERP site to central. Re-pointing a site at a
-		different business would silently re-tenant every row already linked through
-		Connector Lead Link, so the field is write-once."""
-		previous = frappe.db.get_single_value("Connector Settings", "business_id")
-		if previous and previous != self.business_id:
+	def validate_business_id_change(self):
+		"""business_id identifies this ERP site to central, and every Connector Lead Link,
+		Connector Source Link and Lead.custom_business_id stamp carries it too. Changing only
+		the setting left those rows on the old value, so the next push from central failed
+		with BUSINESS_MISMATCH. A System Manager may change it; on_update then re-stamps every
+		row that still carries the old value, so the site stays internally consistent."""
+		previous = (frappe.db.get_single_value(SETTINGS_DOCTYPE_NAME, "business_id") or "").strip()
+		if not previous or previous == self.business_id:
+			return
+
+		if "System Manager" not in frappe.get_roles():
 			frappe.throw(
-				_("Business ID is already set to {0} and cannot be changed.").format(previous),
-				frappe.ValidationError,
+				_("Only a System Manager can change the Business ID (currently {0}).").format(previous),
+				frappe.PermissionError,
 			)
+
+		self.flags.previous_business_id = previous
+
+	def on_update(self):
+		previous = self.flags.pop("previous_business_id", None)
+		if not previous:
+			return
+
+		counts = restamp_business_rows(self.business_id, previous_business_id=previous)
+		frappe.clear_cache()
+		frappe.msgprint(
+			_(
+				"Business ID changed from {0} to {1}. Re-stamped {2} lead link(s), {3} source link(s)"
+				" and {4} lead(s). On the central site, make sure the ERPNext Connector of business {1}"
+				" points to this site and holds this site's connector token."
+			).format(
+				previous,
+				self.business_id,
+				counts["lead_links"],
+				counts["source_links"],
+				counts["leads"],
+			),
+			title=_("Business ID Changed"),
+			indicator="green",
+		)
+
+
+def restamp_business_rows(business_id, previous_business_id=None):
+	"""Point every connector row at business_id.
+
+	With previous_business_id, only rows carrying that value move (a deliberate change from the
+	form). Without it, every link row that does not already say business_id moves (the repair of
+	a site whose stamps are mixed). Lead stamps that are empty are left alone: an untagged Lead
+	is not a mismatch.
+
+	update_modified=False: these rows are bookkeeping for pushes that already happened, and
+	central reads `modified` to decide what to re-send.
+	"""
+	if previous_business_id:
+		link_filters = {"business_id": previous_business_id}
+		lead_filters = {"custom_business_id": previous_business_id}
+	else:
+		link_filters = {"business_id": ["!=", business_id]}
+		lead_filters = {"custom_business_id": ["not in", ["", business_id]]}
+
+	counts = {}
+	for key, doctype in (("lead_links", "Connector Lead Link"), ("source_links", "Connector Source Link")):
+		names = frappe.get_all(doctype, filters=link_filters, pluck="name")
+		for name in names:
+			frappe.db.set_value(doctype, name, "business_id", business_id, update_modified=False)
+		counts[key] = len(names)
+
+	counts["leads"] = 0
+	if frappe.get_meta("Lead").has_field("custom_business_id"):
+		names = frappe.get_all("Lead", filters=lead_filters, pluck="name")
+		for name in names:
+			frappe.db.set_value("Lead", name, "custom_business_id", business_id, update_modified=False)
+		counts["leads"] = len(names)
+
+	return counts
+
+
+@frappe.whitelist()
+def preview_business_id_change(business_id: str):
+	"""How many rows a change away from business_id would re-stamp, for the form's confirmation."""
+	frappe.only_for("System Manager")
+
+	business_id = (business_id or "").strip()
+	counts = {
+		"lead_links": frappe.db.count("Connector Lead Link", {"business_id": business_id}),
+		"source_links": frappe.db.count("Connector Source Link", {"business_id": business_id}),
+		"leads": 0,
+	}
+	if business_id and frappe.get_meta("Lead").has_field("custom_business_id"):
+		counts["leads"] = frappe.db.count("Lead", {"custom_business_id": business_id})
+	return counts
 
 
 @frappe.whitelist()
@@ -70,20 +151,19 @@ def generate_connector_token():
 def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 	"""Correct a business_id that was set wrongly, and re-stamp the rows it orphaned.
 
-	WHY AN ESCAPE HATCH IS NEEDED
+	WHEN TO USE THIS INSTEAD OF THE FORM
 
-	validate_business_id_is_immutable makes the field write-once, and the reason is sound: a
-	silent re-point would re-tenant every row already linked through Connector Lead Link. But
-	write-once with no supported correction means ONE wrong value -- a typo at onboarding, or
-	a test suite writing over a live site -- is permanent, and every push afterwards fails
-	with BUSINESS_MISMATCH and no way out:
+	Changing Business ID in the form re-stamps only the rows that carry the OLD value. That is
+	the normal case. This repair is for a site whose rows are MIXED -- some on the right
+	business, some on a wrong one -- so every row that does not already say business_id is
+	moved, which the form will not do. Left alone, every push fails with BUSINESS_MISMATCH:
 
 	    [BUSINESS_MISMATCH] This payload is for business ORG-00103, but this site belongs to
 	    business VCTEST-BIZ.
 
 	Observed exactly that: a client whose 39 of 42 link rows said ORG-00103 while the setting
 	said VCTEST-BIZ, because the connector's own test suite had written the test value onto a
-	real site and the guard then froze it there.
+	real site.
 
 	WHAT THIS DOES ABOUT THE LINK ROWS
 
@@ -91,9 +171,6 @@ def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 	caller passes confirm_relink, because re-stamping them is the part that actually moves
 	data between tenants. When confirmed it re-stamps them to match, so the site is left
 	internally consistent rather than half-migrated.
-
-	update_modified=False: these rows are bookkeeping for a push that already happened, and
-	central reads `modified` to decide what to re-send.
 	"""
 	frappe.only_for("System Manager")
 
@@ -115,18 +192,11 @@ def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 			).format(mismatched)
 		)
 
-	# A direct single-value write, deliberately: the document API would run the immutability guard, which is
-	# the thing being overridden here under an explicit confirmation.
+	# A direct single-value write, deliberately: the change is already confirmed above, and the
+	# rows are re-stamped below for every business, not only the one the setting held.
 	frappe.db.set_single_value(SETTINGS_DOCTYPE_NAME, "business_id", business_id)
-
-	relinked = 0
-	if mismatched:
-		for name in frappe.get_all(
-			"Connector Lead Link", filters={"business_id": ["!=", business_id]}, pluck="name"
-		):
-			frappe.db.set_value("Connector Lead Link", name, "business_id", business_id, update_modified=False)
-			relinked += 1
+	counts = restamp_business_rows(business_id)
 
 	frappe.db.commit()  # nosemgrep - an operator repair run from the console, outside any request
 	frappe.clear_cache()
-	return {"changed": True, "from": current, "business_id": business_id, "relinked": relinked}
+	return {"changed": True, "from": current, "business_id": business_id, "relinked": counts["lead_links"], **counts}
