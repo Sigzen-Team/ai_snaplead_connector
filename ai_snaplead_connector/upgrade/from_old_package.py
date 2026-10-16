@@ -223,12 +223,12 @@ def rewrite_asset_urls(old=OLD_APP, new=NEW_APP, dry_run=False):
 	for doctype, column in ASSET_URL_COLUMNS:
 		if not _has_column(doctype, column):
 			continue
-		count = frappe.db.sql(
+		count = frappe.db.sql(  # nosemgrep - table/column names come from this module's fixed lists, never from input; values are bound parameters
 			f"select count(*) from `tab{doctype}` where `{column}` like %s", (pattern,)
 		)[0][0]
 		changed += count
 		if count and not dry_run:
-			frappe.db.sql(
+			frappe.db.sql(  # nosemgrep - table/column names come from this module's fixed lists, never from input; values are bound parameters
 				f"update `tab{doctype}` set `{column}` = replace(`{column}`, %s, %s) where `{column}` like %s",
 				(old_prefix, new_prefix, pattern),
 			)
