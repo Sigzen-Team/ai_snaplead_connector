@@ -2,6 +2,48 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Connector Settings", {
+	onload(frm) {
+		frm._saved_business_id = frm.doc.business_id;
+	},
+
+	after_save(frm) {
+		frm._saved_business_id = frm.doc.business_id;
+	},
+
+	before_save(frm) {
+		// Changing the Business ID re-stamps every row that carries the old one (see
+		// validate_business_id_change). Say how many, and let the user back out, before it does.
+		const previous = (frm._saved_business_id || "").trim();
+		const next = (frm.doc.business_id || "").trim();
+		if (!previous || !next || previous === next) return;
+
+		return new Promise((resolve) => {
+			frappe.call({
+				method:
+					"sigzen_ai_scan_crm_connector.sigzen___ai_scan_crm_connector.doctype.connector_settings.connector_settings.preview_business_id_change",
+				args: { business_id: previous },
+				callback: (r) => {
+					const c = r.message || {};
+					frappe.confirm(
+						__(
+							"Change Business ID from {0} to {1}? {2} lead link(s), {3} source link(s) and {4} lead(s) still on {0} will move to {1}. On the central site, the ERPNext Connector of business {1} must point to this site.",
+							[previous, next, c.lead_links || 0, c.source_links || 0, c.leads || 0]
+						),
+						() => resolve(),
+						() => {
+							frappe.validated = false;
+							resolve();
+						}
+					);
+				},
+				error: () => {
+					frappe.validated = false;
+					resolve();
+				},
+			});
+		});
+	},
+
 	refresh(frm) {
 		// Only the hash of the token is stored, so a token cannot be read back. Without a
 		// button here the only way to set one up was to hash a random string by hand and
