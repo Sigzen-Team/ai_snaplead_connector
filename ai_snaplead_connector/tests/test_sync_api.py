@@ -149,7 +149,7 @@ _SEQUENCE = itertools.count(1)
 # A per-RUN salt, and it is load-bearing. The counter alone restarts at 1 on every run, so
 # "asha-17@vctest.example" recurs -- and this app's duplicate guard then refuses the push
 # against a Lead an EARLIER run left on the site, failing a test that has nothing to do with
-# the behaviour it is checking. That is exactly what happened on ankitpulp, where the suite
+# the behaviour it is checking. That is exactly what happened on a client site, where the suite
 # had accumulated 41 Leads. The salt makes every run claim values no previous run can hold.
 _RUN = frappe.generate_hash(length=4)
 
@@ -2523,7 +2523,7 @@ class TestAPushIsNotLostToClientSideSetup(ConnectorAPITestCase):
 		# This field MUST be removed again, not merely uncached. A Custom Field is DDL: it
 		# survives the class rollback, and a mandatory one left on Lead makes every later
 		# suite on this site fail with "Value missing for Lead: Forced Mandatory". That is
-		# exactly what happened on ankitpulp the first time this test ran.
+		# exactly what happened on a client site the first time this test ran.
 		self.addCleanup(self._drop_custom_field, fieldname)
 		# Cleanups run last-registered-first, so this rollback runs BEFORE the drop above.
 		# The drop has to commit (it is DDL), and a commit makes permanent whatever this test
