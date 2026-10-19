@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="VC Connector">
+  <title>VC Connector</title>
+  <!-- Deliberately unbranded. This app is installed on a CLIENT's own ERPNext and is
+       published to the Marketplace, so it must not put a Sigzen mark on their desk.
+       A neutral link glyph says what the app does and nothing about who wrote it. -->
+  <rect width="64" height="64" rx="14" fill="#4C6EF5"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 37a8 8 0 0 0 11 0l7-7a8 8 0 0 0-11-11l-3 3"/>
+    <path d="M37 27a8 8 0 0 0-11 0l-7 7a8 8 0 0 0 11 11l3-3"/>
+  </g>
+</svg>

@@ -1,0 +1,85 @@
+[project]
+name = "ai_snaplead_connector"
+authors = [
+    { name = "Sigzen Solutions", email = "support@sigzen.com"}
+]
+description = "Receive business-card leads from AI SnapLead into ERPNext as standard Leads, Contacts and Addresses."
+requires-python = ">=3.10"
+readme = "README.md"
+license = { file = "license.txt" }
+keywords = ["frappe", "erpnext", "crm", "lead", "connector", "integration"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Framework :: Frappe",
+    "Intended Audience :: Developers",
+]
+dynamic = ["version"]
+dependencies = [
+    # "frappe~=15.0.0" # Installed and managed by bench.
+]
+
+[project.urls]
+# The source of record. Frappe Cloud can only install from a repository it can reach, so
+# when this is mirrored to a public host these three lines move with it (see MARKETPLACE.md).
+Homepage = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector"
+Repository = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector.git"
+Changelog = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector/-/blob/master/CHANGELOG.md"
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+# flit builds the package named after the project (ai_snaplead_connector) and reads __version__
+# from its __init__.py. The stand-in packages vc_connector/ and sigzen_ai_scan_crm_connector/ are
+# not part of the wheel: bench installs apps editable (the whole folder is on sys.path), which is
+# what lets a site that still lists an old name import its stand-in and be renamed on migrate.
+
+# What bench and Frappe Cloud check before installing: this app is built and tested on
+# version 16 of both. ERPNext is a hard dependency (see required_apps in hooks.py).
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<17.0.0"
+erpnext = ">=16.0.0,<17.0.0"
+
+# These dependencies are only installed when developer mode is enabled
+[tool.bench.dev-dependencies]
+# package_name = "~=1.1.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "UP",
+    "B",
+    "RUF",
+]
+ignore = [
+    "B017", # assertRaises(Exception) - should be more specific
+    "B018", # useless expression, not assigned to anything
+    "B023", # function doesn't bind loop variable - will have last iteration's value
+    "B904", # raise inside except without from
+    "E101", # indentation contains mixed spaces and tabs
+    "E402", # module level import not at top of file
+    "E501", # line too long
+    "E741", # ambiguous variable name
+    "F401", # "unused" imports
+    "F403", # can't detect undefined names from * import
+    "F405", # can't detect undefined names from * import
+    "F722", # syntax error in forward type annotation
+    "UP030", # use implicit references for positional format fields (translations need {0})
+    "UP031", # use format specifiers instead of percent format
+    "UP032", # use f-string instead of format call (breaks translatable strings)
+    "W191", # indentation contains tabs
+]
+typing-modules = ["frappe.types.DF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+docstring-code-format = true
