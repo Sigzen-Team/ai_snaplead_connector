@@ -369,9 +369,14 @@ def _authenticate():
 
 	settings = _settings_or_none()
 	if not settings:
+		# The settings could not be LOADED -- typically mid-upgrade, between the code update and
+		# `bench migrate` (the DocType's module is renamed by the migrate). That is not a
+		# decision that this site is switched off, so it must not be the non-retryable
+		# CONNECTOR_DISABLED: central would mark the lead permanently failed. A site whose
+		# settings load and say enabled=0 still answers CONNECTOR_DISABLED (_check_enabled).
 		raise ConnectorError(
-			"CONNECTOR_DISABLED",
-			_("Connector Settings is not available on this site. Run `bench --site <site> migrate` and configure it."),
+			"SETUP_REQUIRED",
+			_("Connector Settings could not be loaded on this site. Run `bench --site <site> migrate` and configure it."),
 		)
 
 	stored = (settings.get("token_hash") or "").strip().lower()

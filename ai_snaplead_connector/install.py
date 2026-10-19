@@ -50,6 +50,35 @@ APP = "ai_snaplead_connector"
 SIDEBAR = APP_LABEL
 
 
+#: extend_doctype_class (hooks.py), which carries the whole Lead extension, exists only from
+#: Frappe v16. On v15 the hook is silently ignored and the app "installs" without it.
+MIN_FRAPPE_MAJOR = 16
+
+
+def frappe_major_version(version=None):
+	"""The leading number of frappe.__version__, or None when it is not a number (a develop build)."""
+	version = str(version if version is not None else getattr(frappe, "__version__", "") or "")
+	digits = ""
+	for char in version.strip():
+		if not char.isdigit():
+			break
+		digits += char
+	return int(digits) if digits else None
+
+
+def check_frappe_version(version=None):
+	"""Refuse to install or migrate on Frappe < 16 instead of silently skipping the Lead extension."""
+	major = frappe_major_version(version)
+	if major is not None and major < MIN_FRAPPE_MAJOR:
+		frappe.throw(
+			_(
+				"AI SnapLead - Connector needs Frappe/ERPNext v16. This site runs Frappe {0}; upgrade"
+				" the bench to v16 before installing or migrating this app."
+			).format(version if version is not None else frappe.__version__),
+			title=_("Unsupported Frappe Version"),
+		)
+
+
 def before_install():
 	"""Make sure frappe will actually sync this app's DocTypes, then hand over to the rename.
 
@@ -64,6 +93,7 @@ def before_install():
 	from ai_snaplead_connector.brand_rename import refresh_module_map
 	from ai_snaplead_connector.upgrade.from_old_package import before_install as rename_old_install
 
+	check_frappe_version()
 	refresh_module_map()
 	return rename_old_install()
 

@@ -36,7 +36,14 @@ import json
 import frappe
 from frappe import _
 
+from ai_snaplead_connector.install import INTEGRATION_ROLE
 from ai_snaplead_connector.tenancy import SETTINGS
+
+#: Who may write through upsert_document: central authenticates as the client's integration
+#: user, which is a System Manager or holds the connector's own role. Being logged in is NOT
+#: enough -- a portal user or a low-rights employee must not overwrite a Lead, Contact or
+#: Address with permissions and mandatory checks switched off.
+WRITE_ROLES = ("System Manager", INTEGRATION_ROLE)
 
 ALLOWED_DOCTYPES = {
 	"Lead",
@@ -102,14 +109,19 @@ def _installed_version():
 		return None
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def upsert_document(
 	doctype: str | None = None,
 	data: dict | str | None = None,
 	name: str | None = None,
 	ignore_mandatory: int | str = 1,
 ):
-	"""Create or update one document, without letting client setup lose the write."""
+	"""Create or update one document, without letting client setup lose the write.
+
+	POST only, so a cross-site GET (an <img src>, a link) cannot reach it with the victim's
+	session; central always POSTs (remote_erp_client.remote_upsert_document).
+	"""
+	frappe.only_for(WRITE_ROLES)
 	_assert_enabled()
 
 	doctype = (doctype or "").strip()
@@ -144,11 +156,11 @@ def upsert_document(
 		doc.insert(ignore_permissions=True, ignore_mandatory=force_mandatory, ignore_if_duplicate=True)
 		operation = "created"
 
-	frappe.db.commit()  # nosemgrep - legacy transport may be called with GET, which frappe does not auto-commit
+	frappe.db.commit()  # nosemgrep - the write must land even if a later hook in this request fails
 	return {"name": doc.name, "doctype": doctype, "operation": operation}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def issue_connector_token():
 	"""Mint the connector token FOR central, during onboarding, and return it once.
 
@@ -183,7 +195,10 @@ def issue_connector_token():
 	token = secrets.token_urlsafe(32)
 	settings.token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 	settings.flags.ignore_permissions = True
+	# Onboarding runs before anyone has typed a Business ID, and business_id is mandatory on
+	# the form: without this the save refused and central's onboarding got no token at all.
+	settings.flags.ignore_mandatory = True
 	settings.save(ignore_permissions=True)
-	frappe.db.commit()  # nosemgrep - legacy transport may be called with GET, which frappe does not auto-commit
+	frappe.db.commit()  # nosemgrep - the token is returned once; its hash must be stored first
 
 	return {"token": token, "business_id": settings.business_id}

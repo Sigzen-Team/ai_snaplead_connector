@@ -76,21 +76,26 @@ def restamp_business_rows(business_id, previous_business_id=None):
 		link_filters = {"business_id": ["!=", business_id]}
 		lead_filters = {"custom_business_id": ["not in", ["", business_id]]}
 
+	# One UPDATE per table, not one per row: a site with tens of thousands of leads made a
+	# Business ID change a request-timeout. frappe.db.count and frappe.db.set_value with a
+	# filters dict both build their WHERE through frappe.qb.get_query, the same engine get_all
+	# used, so the counts reported are exactly the rows the UPDATE touches.
 	counts = {}
 	for key, doctype in (("lead_links", "Connector Lead Link"), ("source_links", "Connector Source Link")):
-		names = frappe.get_all(doctype, filters=link_filters, pluck="name")
-		for name in names:
-			frappe.db.set_value(doctype, name, "business_id", business_id, update_modified=False)
-		counts[key] = len(names)
+		counts[key] = _bulk_restamp(doctype, "business_id", link_filters, business_id)
 
 	counts["leads"] = 0
 	if frappe.get_meta("Lead").has_field("custom_business_id"):
-		names = frappe.get_all("Lead", filters=lead_filters, pluck="name")
-		for name in names:
-			frappe.db.set_value("Lead", name, "custom_business_id", business_id, update_modified=False)
-		counts["leads"] = len(names)
+		counts["leads"] = _bulk_restamp("Lead", "custom_business_id", lead_filters, business_id)
 
 	return counts
+
+
+def _bulk_restamp(doctype, fieldname, filters, business_id):
+	count = frappe.db.count(doctype, filters)
+	if count:
+		frappe.db.set_value(doctype, filters, fieldname, business_id, update_modified=False)
+	return count
 
 
 @frappe.whitelist()
@@ -109,7 +114,7 @@ def preview_business_id_change(business_id: str):
 	return counts
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def generate_connector_token():
 	"""Mint the shared secret this site expects from central, and show it ONCE.
 
@@ -147,7 +152,7 @@ def generate_connector_token():
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 	"""Correct a business_id that was set wrongly, and re-stamp the rows it orphaned.
 

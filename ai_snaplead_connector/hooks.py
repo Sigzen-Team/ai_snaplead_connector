@@ -129,7 +129,12 @@ before_install = "ai_snaplead_connector.install.before_install"
 after_install = "ai_snaplead_connector.install.after_install"
 # The module and the workspace were renamed. This has to run before every patch and before
 # the model sync, or each DocType of this app fails to load -- see brand_rename.py.
-before_migrate = ["ai_snaplead_connector.brand_rename.execute"]
+# check_frappe_version first: on Frappe < 16 extend_doctype_class does not exist, so refuse
+# the migrate with a clear message rather than leave Lead without this app's extension.
+before_migrate = [
+	"ai_snaplead_connector.install.check_frappe_version",
+	"ai_snaplead_connector.brand_rename.execute",
+]
 after_migrate = "ai_snaplead_connector.install.after_migrate"
 
 # Uninstallation
@@ -315,6 +320,7 @@ before_request = ["ai_snaplead_connector.utils.renamed_routes.redirect_renamed_d
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
-# default_log_clearing_doctypes = {
-# 	"Logging DocType Name": 30  # days to retain logs
-# }
+# Log Settings clears Connector Log rows older than this (days). One row per push adds up.
+default_log_clearing_doctypes = {
+	"Connector Log": 90,
+}

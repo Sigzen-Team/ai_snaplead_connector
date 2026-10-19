@@ -11,11 +11,46 @@ breaking change for every central site in the field and gets its own major relea
 
 | App version | Protocol | Frappe | ERPNext |
 | --- | --- | --- | --- |
+| 1.1.0 | `vc-connector/1` | 16 (refused on < 16) | 16 |
 | 1.0.0 | `vc-connector/1` | 16 (verified on 16.25.0 and 16.26.3) | 16 (verified on 16.26.2 and 16.27.0) |
 
 ---
 
-## [Unreleased]
+## [1.1.0] — 2026-10-19
+
+Renamed to AI SnapLead - Connector, plus security and robustness fixes found in pre-release
+review. Upgrade with `bench migrate`; nothing to configure.
+
+### Security
+
+- **`legacy_sync.upsert_document` is POST-only and role-gated.** It writes Leads, Contacts and
+  Addresses with permissions and mandatory checks off, and any logged-in user (a portal user,
+  a low-rights employee, or a cross-site GET riding someone's session) could call it. It now
+  requires POST and the System Manager or Connector Integration role. Central already calls it
+  that way, so nothing legitimate changes.
+- **POST-only token and repair endpoints.** `issue_connector_token`, `generate_connector_token`
+  and `repair_business_id` change state and no longer accept GET (CSRF). The Desk button and
+  central already use POST.
+
+### Fixed
+
+- **Onboarding token with no Business ID yet.** `issue_connector_token` failed with a mandatory
+  error when Business ID was still empty, so central's onboarding got no token.
+- **Upgrade window is retryable.** While Connector Settings cannot be loaded (code updated,
+  `bench migrate` not yet run), pushes answer `SETUP_REQUIRED` (retryable) instead of
+  `CONNECTOR_DISABLED`, which made central drop the lead for good. A site whose settings load
+  and say disabled still answers `CONNECTOR_DISABLED`.
+- **Business ID change is one UPDATE per table.** Re-stamping Connector Lead Link, Connector
+  Source Link and `Lead.custom_business_id` ran one query per row and could time out on a
+  large site; the reported counts are unchanged.
+- **Frappe < 16 is refused.** `extend_doctype_class`, which carries the Lead extension, does
+  not exist before v16, so on v15 the app installed without it. Install and migrate now stop
+  with "AI SnapLead - Connector needs Frappe/ERPNext v16".
+
+### Added
+
+- Connector Log is registered with Log Settings (`default_log_clearing_doctypes`): rows older
+  than 90 days are cleared.
 
 ### Changed
 
