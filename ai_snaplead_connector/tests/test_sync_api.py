@@ -101,17 +101,21 @@ def _ensure_address_template():
 	pretending addresses cannot be written.
 	"""
 	if frappe.db.exists("Address Template", {"is_default": 1}):
-		return
+		return None
 
-	frappe.get_doc(
-		{
-			"doctype": "Address Template",
-			"country": frappe.db.get_value("Country", {"name": "India"})
-			or frappe.db.get_value("Country", {}),
-			"is_default": 1,
-			"template": "{{ address_line1 }}<br>{{ city }}<br>{{ state }}<br>{{ pincode }}",
-		}
-	).insert(ignore_permissions=True)
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Address Template",
+				"country": frappe.db.get_value("Country", {"name": "India"})
+				or frappe.db.get_value("Country", {}),
+				"is_default": 1,
+				"template": "{{ address_line1 }}<br>{{ city }}<br>{{ state }}<br>{{ pincode }}",
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def _remove_site_files():
@@ -202,7 +206,7 @@ class ConnectorAPITestCase(LeavesNoContactsBehind, IntegrationTestCase):
 		self.addCleanup(_clear_request)
 		self.addCleanup(frappe.set_user, "Administrator")
 		_configure()
-		_ensure_address_template()
+		self.created_address_template = _ensure_address_template()
 		_set_request()
 		frappe.set_user("Administrator")
 
@@ -2485,6 +2489,19 @@ class TestAPushIsNotLostToClientSideSetup(ConnectorAPITestCase):
 			except Exception:
 				frappe.clear_last_message()
 		frappe.clear_cache(doctype="Lead")
+		# Adding the Custom Field was DDL, which committed what setUp wrote: the test pairing
+		# in Connector Settings and the Address Template. setUp's own restore runs later and is
+		# discarded by the class rollback, so put the site back here and commit it. Without
+		# this the suite wiped the real pairing, and the next migrate re-created the legacy
+		# Lead fields because the legacy_fields_dropped flag was gone.
+		_restore_settings(self.saved_settings)
+		if self.created_address_template and frappe.db.exists(
+			"Address Template", self.created_address_template
+		):
+			frappe.delete_doc(
+				"Address Template", self.created_address_template, ignore_permissions=True, force=True
+			)
+		frappe.db.commit()
 
 	def test_a_source_the_client_has_never_seen_is_created_not_refused(self):
 		"""The payload carries the source as a STRING; Lead.utm_source is a LINK."""
