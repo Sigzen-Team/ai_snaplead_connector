@@ -74,16 +74,66 @@ class TestTenancy(LeavesNoContactsBehind, IntegrationTestCase):
 
 		_clear_settings()
 
-	def test_business_id_is_write_once(self):
+	def test_changing_the_business_id_restamps_rows_carrying_the_old_one(self):
+		"""Changing only the setting left every link row and Lead stamp on the old value, so the
+		next push from central failed with BUSINESS_MISMATCH. The save now moves them along."""
+		settings = frappe.get_single(SETTINGS)
+		settings.business_id = "biz-alpha"
+		settings.save(ignore_permissions=True)
+		frappe.clear_cache()
+
+		lead = frappe.get_doc(
+			{
+				"doctype": "Lead",
+				"first_name": "Moves Business",
+				"company_name": "VC Connector Test Co",
+				"email_id": "movesbusiness@example.com",
+			}
+		).insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "Lead", lead.name, force=True, ignore_permissions=True)
+		lead_link = frappe.get_doc(
+			{"doctype": "Connector Lead Link", "vc_uuid": frappe.generate_hash(length=12), "lead": lead.name}
+		).insert(ignore_permissions=True)
+		self.addCleanup(frappe.delete_doc, "Connector Lead Link", lead_link.name, force=True, ignore_permissions=True)
+		# UTM Source on ERPNext v16, Lead Source up to v15.
+		source_doctype = frappe.get_meta("Connector Source Link").get_field("source").options
+		source_name = f"Moves Business {frappe.generate_hash(length=6)}"
+		frappe.get_doc({"doctype": source_doctype, "name": source_name, "source_name": source_name}).insert(
+			ignore_permissions=True
+		)
+		self.addCleanup(frappe.delete_doc, source_doctype, source_name, force=True, ignore_permissions=True)
+		source_link = frappe.get_doc(
+			{"doctype": "Connector Source Link", "vc_uuid": frappe.generate_hash(length=12), "source": source_name}
+		).insert(ignore_permissions=True)
+		self.addCleanup(
+			frappe.delete_doc, "Connector Source Link", source_link.name, force=True, ignore_permissions=True
+		)
+		has_stamp = frappe.get_meta("Lead").has_field("custom_business_id")
+		if has_stamp:
+			frappe.db.set_value("Lead", lead.name, "custom_business_id", "biz-alpha", update_modified=False)
+
+		settings = frappe.get_single(SETTINGS)
+		settings.business_id = "biz-beta"
+		settings.save(ignore_permissions=True)
+
+		self.assertEqual(get_site_business_id(), "biz-beta")
+		self.assertEqual(frappe.db.get_value("Connector Lead Link", lead_link.name, "business_id"), "biz-beta")
+		self.assertEqual(frappe.db.get_value("Connector Source Link", source_link.name, "business_id"), "biz-beta")
+		if has_stamp:
+			self.assertEqual(frappe.db.get_value("Lead", lead.name, "custom_business_id"), "biz-beta")
+
+	def test_only_a_system_manager_can_change_the_business_id(self):
 		settings = frappe.get_single(SETTINGS)
 		settings.business_id = "biz-alpha"
 		settings.save(ignore_permissions=True)
 
-		self.assertEqual(get_site_business_id(), "biz-alpha")
+		original_get_roles = frappe.get_roles
+		frappe.get_roles = lambda *args, **kwargs: ["Connector Integration"]
+		self.addCleanup(setattr, frappe, "get_roles", original_get_roles)
 
 		settings = frappe.get_single(SETTINGS)
 		settings.business_id = "biz-beta"
-		with self.assertRaises(frappe.ValidationError):
+		with self.assertRaises(frappe.PermissionError):
 			settings.save(ignore_permissions=True)
 
 	def test_settings_outrank_the_per_row_stamp(self):
