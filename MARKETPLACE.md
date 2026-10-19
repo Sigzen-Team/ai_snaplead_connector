@@ -4,7 +4,7 @@ Where this app stands against what the Frappe Marketplace asks for. Review guida
 check the current [Frappe Marketplace publishing docs](https://frappecloud.com/docs/marketplace)
 before relying on any item here.
 
-Last reviewed: 2026-09-30, for release 1.0.0.
+Last reviewed: 2026-10-19, for release 1.1.0.
 
 ## Ready
 
@@ -14,7 +14,7 @@ Last reviewed: 2026-09-30, for release 1.0.0.
       few sites that installed one, and the old API paths still answer).
 - [x] **Packaging.** `pyproject.toml` declares the name, licence, description and the supported
       Frappe and ERPNext versions (`[tool.bench.frappe-dependencies]`). `required_apps` lists
-      ERPNext. `__version__` is `1.0.0`.
+      ERPNext. `__version__` is `1.1.0`.
 - [x] **Licence.** MIT, full text in `license.txt`.
 - [x] **README** written for a site administrator: what it does, requirements, install on
       Frappe Cloud and on a bench, setup, troubleshooting, uninstall, support.
@@ -24,9 +24,10 @@ Last reviewed: 2026-09-30, for release 1.0.0.
       "AI SnapLead - Connector". A logo is shipped and declared in `add_to_apps_screen`.
 - [x] **Installs cleanly on MariaDB**, the database Frappe Cloud runs: fresh `install-app` on a
       new site, then `migrate`, then the full suite twice.
-- [x] **Tests.** 228 tests, 0 failures on MariaDB and SQLite. The suite leaves no records
+- [x] **Tests.** 275 tests, 0 failures on MariaDB and SQLite. The suite leaves no records
       behind and passes when run twice in a row.
-- [x] **Static checks.** `ruff check` clean. Frappe semgrep rules: 0 findings. The manual
+- [x] **Static checks.** `ruff check` and `ruff format` clean (ruff 0.14.10, as pinned in
+      `.pre-commit-config.yaml`). Frappe semgrep rules: 0 findings. The manual
       commits that remain are one-time migration stages and single-use token issuance, each
       annotated with its reason.
 - [x] **Plays well with other apps.** Lead is extended (`extend_doctype_class`), not
@@ -56,7 +57,9 @@ The source of record is an internal GitLab host. Frappe Cloud installs an app by
 the repository has to be on a host it can reach (GitHub is what the Marketplace expects).
 
 - [ ] Mirror or move the repository to a public or Frappe-Cloud-connected GitHub repository
-- [ ] Update the three URLs in `[project.urls]` in `pyproject.toml`
+- [ ] Update the three URLs in `[project.urls]` in `pyproject.toml` and the `bench get-app`
+      line in `README.md` (today they point at the internal repository
+      `Sigzen-Team/ai_snaplead_connector`)
 - [ ] Review `gitlab-ci/`: the pipelines reference an internal image and host, which is right
       for the internal GitLab and should not be copied to a public repository as they are
 

@@ -242,7 +242,10 @@ def _verify_contacts(name, legacy):
 
 	contact, held_emails, held_phones = _contact_rows(name)
 	if not contact:
-		return [*reasons, "custom_email_ids/custom_mobile_numbers are set but no Contact is linked to this Lead"]
+		return [
+			*reasons,
+			"custom_email_ids/custom_mobile_numbers are set but no Contact is linked to this Lead",
+		]
 
 	missing_emails = sorted(wanted_emails - held_emails)
 	if missing_emails:
@@ -368,4 +371,6 @@ def _verify_business_id(name, legacy):
 	if held == business_id:
 		return []
 
-	return [f"custom_business_id {business_id} is on no Connector Lead Link row for this Lead (found {held or 'none'})"]
+	return [
+		f"custom_business_id {business_id} is on no Connector Lead Link row for this Lead (found {held or 'none'})"
+	]

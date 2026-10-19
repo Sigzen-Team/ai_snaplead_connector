@@ -79,9 +79,7 @@ class TestWorkspaceRepair(IntegrationTestCase):
 		mine = {"id": "zz_test", "type": "paragraph", "data": {"text": "client note", "col": 12}}
 		for block in blocks:
 			if block.get("type") == "header":
-				block["data"]["text"] = (
-					f'<span class="h4"><b>{install.LEGACY_WORKSPACES[-1]}</b></span>'
-				)
+				block["data"]["text"] = f'<span class="h4"><b>{install.LEGACY_WORKSPACES[-1]}</b></span>'
 				break
 		blocks.append(mine)
 		frappe.db.set_value(
@@ -151,16 +149,16 @@ class TestBrandRename(IntegrationTestCase):
 		for legacy in brand_rename.LEGACY_MODULES:
 			self.assertFalse(frappe.db.exists("Module Def", legacy), f"{legacy} survived the rename")
 			self.assertEqual(frappe.db.count("DocType", {"module": legacy}), 0)
-		self.assertEqual(
-			frappe.db.get_value("DocType", "Connector Settings", "module"), brand_rename.MODULE
-		)
+		self.assertEqual(frappe.db.get_value("DocType", "Connector Settings", "module"), brand_rename.MODULE)
 		# The folder a module's code lives in is frappe.scrub(name); both must agree.
 		self.assertTrue(os.path.isdir(frappe.get_module_path(brand_rename.MODULE)))
 
 	def test_rename_is_a_no_op_on_a_site_already_renamed(self):
 		from ai_snaplead_connector import brand_rename
 
-		self.assertFalse(brand_rename.rename_module("Vc Connector", brand_rename.MODULE, "ai_snaplead_connector"))
+		self.assertFalse(
+			brand_rename.rename_module("Vc Connector", brand_rename.MODULE, "ai_snaplead_connector")
+		)
 		for legacy in brand_rename.LEGACY_WORKSPACES:
 			self.assertFalse(brand_rename.rename_workspace(legacy, brand_rename.WORKSPACE))
 
@@ -169,7 +167,9 @@ class TestBrandRename(IntegrationTestCase):
 		the URL from the workspace's TITLE, which must slug to the route of its NAME."""
 		title = frappe.get_hooks("app_title", app_name="ai_snaplead_connector")[0]
 		self.assertEqual(title, install.APP_LABEL)
-		self.assertEqual(frappe.get_hooks("app_home", app_name="ai_snaplead_connector")[-1], "/desk/ai-snaplead-connector")
+		self.assertEqual(
+			frappe.get_hooks("app_home", app_name="ai_snaplead_connector")[-1], "/desk/ai-snaplead-connector"
+		)
 		if frappe.db.exists("Workspace", install.WORKSPACE):
 			row = frappe.db.get_value("Workspace", install.WORKSPACE, ["label", "title"], as_dict=True)
 			self.assertEqual((row.label, row.title), (install.WORKSPACE, install.WORKSPACE))

@@ -94,7 +94,9 @@ class TestTenancy(LeavesNoContactsBehind, IntegrationTestCase):
 		lead_link = frappe.get_doc(
 			{"doctype": "Connector Lead Link", "vc_uuid": frappe.generate_hash(length=12), "lead": lead.name}
 		).insert(ignore_permissions=True)
-		self.addCleanup(frappe.delete_doc, "Connector Lead Link", lead_link.name, force=True, ignore_permissions=True)
+		self.addCleanup(
+			frappe.delete_doc, "Connector Lead Link", lead_link.name, force=True, ignore_permissions=True
+		)
 		# UTM Source on ERPNext v16, Lead Source up to v15.
 		source_doctype = frappe.get_meta("Connector Source Link").get_field("source").options
 		source_name = f"Moves Business {frappe.generate_hash(length=6)}"
@@ -103,7 +105,11 @@ class TestTenancy(LeavesNoContactsBehind, IntegrationTestCase):
 		)
 		self.addCleanup(frappe.delete_doc, source_doctype, source_name, force=True, ignore_permissions=True)
 		source_link = frappe.get_doc(
-			{"doctype": "Connector Source Link", "vc_uuid": frappe.generate_hash(length=12), "source": source_name}
+			{
+				"doctype": "Connector Source Link",
+				"vc_uuid": frappe.generate_hash(length=12),
+				"source": source_name,
+			}
 		).insert(ignore_permissions=True)
 		self.addCleanup(
 			frappe.delete_doc, "Connector Source Link", source_link.name, force=True, ignore_permissions=True
@@ -117,8 +123,12 @@ class TestTenancy(LeavesNoContactsBehind, IntegrationTestCase):
 		settings.save(ignore_permissions=True)
 
 		self.assertEqual(get_site_business_id(), "biz-beta")
-		self.assertEqual(frappe.db.get_value("Connector Lead Link", lead_link.name, "business_id"), "biz-beta")
-		self.assertEqual(frappe.db.get_value("Connector Source Link", source_link.name, "business_id"), "biz-beta")
+		self.assertEqual(
+			frappe.db.get_value("Connector Lead Link", lead_link.name, "business_id"), "biz-beta"
+		)
+		self.assertEqual(
+			frappe.db.get_value("Connector Source Link", source_link.name, "business_id"), "biz-beta"
+		)
 		if has_stamp:
 			self.assertEqual(frappe.db.get_value("Lead", lead.name, "custom_business_id"), "biz-beta")
 
@@ -305,12 +315,18 @@ class TestTenancy(LeavesNoContactsBehind, IntegrationTestCase):
 		first = frappe.get_doc(
 			{"doctype": "Connector Lead Link", "vc_uuid": frappe.generate_hash(length=12), "lead": lead.name}
 		).insert(ignore_permissions=True)
-		self.addCleanup(frappe.delete_doc, "Connector Lead Link", first.name, force=True, ignore_permissions=True)
+		self.addCleanup(
+			frappe.delete_doc, "Connector Lead Link", first.name, force=True, ignore_permissions=True
+		)
 		self.assertEqual(first.business_id, "biz-alpha")
 
 		with self.assertRaises(frappe.DuplicateEntryError):
 			frappe.get_doc(
-				{"doctype": "Connector Lead Link", "vc_uuid": frappe.generate_hash(length=12), "lead": lead.name}
+				{
+					"doctype": "Connector Lead Link",
+					"vc_uuid": frappe.generate_hash(length=12),
+					"lead": lead.name,
+				}
 			).insert(ignore_permissions=True)
 
 	def test_a_multi_business_site_still_refuses_a_duplicate(self):

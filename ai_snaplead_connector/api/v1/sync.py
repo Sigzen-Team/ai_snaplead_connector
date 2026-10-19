@@ -364,7 +364,9 @@ def _authenticate():
 	if not user or user == "Guest":
 		raise ConnectorError(
 			"UNAUTHENTICATED",
-			_("This endpoint requires an authenticated ERPNext user. Send an API key/secret for the integration user."),
+			_(
+				"This endpoint requires an authenticated ERPNext user. Send an API key/secret for the integration user."
+			),
 		)
 
 	settings = _settings_or_none()
@@ -376,14 +378,18 @@ def _authenticate():
 		# settings load and say enabled=0 still answers CONNECTOR_DISABLED (_check_enabled).
 		raise ConnectorError(
 			"SETUP_REQUIRED",
-			_("Connector Settings could not be loaded on this site. Run `bench --site <site> migrate` and configure it."),
+			_(
+				"Connector Settings could not be loaded on this site. Run `bench --site <site> migrate` and configure it."
+			),
 		)
 
 	stored = (settings.get("token_hash") or "").strip().lower()
 	if not stored:
 		raise ConnectorError(
 			"TOKEN_INVALID",
-			_("This site has no connector token configured. Set the token hash in Connector Settings before the central site pushes."),
+			_(
+				"This site has no connector token configured. Set the token hash in Connector Settings before the central site pushes."
+			),
 			field="token_hash",
 		)
 
@@ -438,9 +444,7 @@ def _check_business(settings, claimed):
 	claimed = (claimed or "").strip()
 
 	if not claimed:
-		raise ConnectorError(
-			"VALIDATION_FAILED", _("business_id is required."), field="business_id"
-		)
+		raise ConnectorError("VALIDATION_FAILED", _("business_id is required."), field="business_id")
 
 	if not site_business:
 		raise ConnectorError(
@@ -535,7 +539,9 @@ def _type_name(expected):
 def _validate_object(data, schema, path):
 	if not isinstance(data, dict):
 		raise ConnectorError(
-			"VALIDATION_FAILED", _("{0} must be an object.").format(path or "payload"), field=path or "payload"
+			"VALIDATION_FAILED",
+			_("{0} must be an object.").format(path or "payload"),
+			field=path or "payload",
 		)
 
 	clean = {}
@@ -588,7 +594,9 @@ def _validate_contact_values(values, path):
 			continue
 		if not isinstance(item, str):
 			raise ConnectorError(
-				"VALIDATION_FAILED", _("{0}[{1}] must be a string.").format(path, index), field=f"{path}[{index}]"
+				"VALIDATION_FAILED",
+				_("{0}[{1}] must be a string.").format(path, index),
+				field=f"{path}[{index}]",
 			)
 		out.append(item)
 
@@ -613,7 +621,9 @@ def _validate_payload(data):
 		if kind and kind not in ATTACHMENT_KINDS:
 			raise ConnectorError(
 				"VALIDATION_FAILED",
-				_("attachments[{0}].kind must be one of: {1}.").format(index, ", ".join(sorted(ATTACHMENT_KINDS))),
+				_("attachments[{0}].kind must be one of: {1}.").format(
+					index, ", ".join(sorted(ATTACHMENT_KINDS))
+				),
 				field=f"attachments[{index}].kind",
 			)
 		if not attachment.get("content_base64"):
@@ -1092,9 +1102,7 @@ def _assign_new_lead(lead, warnings):
 		)
 	except Exception as exc:
 		warnings.append(
-			"Lead {0} was created but could not be assigned to {1}: {2}".format(
-				lead.name, owner, exc
-			)
+			"Lead {0} was created but could not be assigned to {1}: {2}".format(lead.name, owner, exc)
 		)
 
 
@@ -1142,8 +1150,7 @@ def _assert_adoptable(lead, graph):
 		raise ConnectorError(
 			"BUSINESS_MISMATCH",
 			_(
-				"Lead {0} is stamped for business {1}, not {2}, so it cannot be adopted."
-				" Nothing was written."
+				"Lead {0} is stamped for business {1}, not {2}, so it cannot be adopted. Nothing was written."
 			).format(lead.name, stamped, graph["business_id"]),
 			field="legacy_remote_name",
 		)
@@ -1264,10 +1271,16 @@ def _stored_lead_contacts(lead_name):
 		if not contact:
 			return ([], [])
 		emails = frappe.get_all(
-			"Contact Email", filters={"parent": contact, "parenttype": "Contact"}, pluck="email_id", order_by="idx asc"
+			"Contact Email",
+			filters={"parent": contact, "parenttype": "Contact"},
+			pluck="email_id",
+			order_by="idx asc",
 		)
 		phones = frappe.get_all(
-			"Contact Phone", filters={"parent": contact, "parenttype": "Contact"}, pluck="phone", order_by="idx asc"
+			"Contact Phone",
+			filters={"parent": contact, "parenttype": "Contact"},
+			pluck="phone",
+			order_by="idx asc",
 		)
 
 	return (
@@ -1350,9 +1363,7 @@ def _preserved_contacts(lead, graph, link_row, outcome):
 		lead_emails, lead_phones = _held_lead_contacts(lead)
 		held_email_keys = {normalize_email(value) for value in lead_emails if value}
 		held_phone_keys = {phone_match_key(value) or value for value in lead_phones if value}
-		held_emails = [
-			value for value in carried["emails"] if normalize_email(value) in held_email_keys
-		]
+		held_emails = [value for value in carried["emails"] if normalize_email(value) in held_email_keys]
 		held_phones = [
 			value for value in carried["phones"] if (phone_match_key(value) or value) in held_phone_keys
 		]
@@ -1533,8 +1544,9 @@ def _upsert_address(lead, graph, defaults, warnings, touched):
 	if dropped_city:
 		defaults.pop("address.city", None)
 		warnings.append(
-			_("Address.city {0} was dropped: this site links city to a master record and has no"
-			  " row for it.").format(dropped_city)
+			_(
+				"Address.city {0} was dropped: this site links city to a master record and has no row for it."
+			).format(dropped_city)
 		)
 
 	line2 = (block.get("address_line2") or "").strip()
@@ -1601,9 +1613,7 @@ def _upsert_address(lead, graph, defaults, warnings, touched):
 	_require_address_template(country)
 
 	values = {
-		"address_title": (block.get("address_title") or "").strip()
-		or lead.get("lead_name")
-		or lead.name,
+		"address_title": (block.get("address_title") or "").strip() or lead.get("lead_name") or lead.name,
 		"address_type": (block.get("address_type") or "").strip() or DEFAULT_ADDRESS_TYPE,
 		"address_line1": line1[:240],
 		"address_line2": line2,
@@ -1860,7 +1870,9 @@ def _claim_link_row(lead, link_row):
 	if link_row:
 		return frappe.get_doc("Connector Lead Link", link_row.name)
 
-	placeholder = frappe.db.get_value("Connector Lead Link", {"lead": lead.name}, ["name", "vc_uuid"], as_dict=True)
+	placeholder = frappe.db.get_value(
+		"Connector Lead Link", {"lead": lead.name}, ["name", "vc_uuid"], as_dict=True
+	)
 	if placeholder and not (placeholder.vc_uuid or "").strip():
 		return frappe.get_doc("Connector Lead Link", placeholder.name)
 
@@ -2265,7 +2277,9 @@ def _pull_page(settings, since=None, cursor=None, limit=None):
 	if cursor:
 		modified, _sep, name = str(cursor).partition("|")
 		if not name:
-			raise ConnectorError("VALIDATION_FAILED", _("cursor is not a cursor issued by this client."), field="cursor")
+			raise ConnectorError(
+				"VALIDATION_FAILED", _("cursor is not a cursor issued by this client."), field="cursor"
+			)
 		query = query.where((lead.modified > modified) | ((lead.modified == modified) & (lead.name > name)))
 
 	rows = query.run(as_dict=True)

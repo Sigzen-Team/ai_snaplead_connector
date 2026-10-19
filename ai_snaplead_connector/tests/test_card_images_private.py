@@ -150,7 +150,9 @@ class TestMakeCardImagesPrivate(IntegrationTestCase):
 	def test_card_urls_are_read_from_the_legacy_archive(self):
 		legacy = json.dumps({"fields": {"custom_front_card_image": "/files/a.png", "other": "/files/b.png"}})
 		notes = json.dumps({"custom_back_card_image": {"outcome": "migrated", "file_url": "/files/c.png"}})
-		self.assertEqual(patch_module._card_urls(legacy, notes, "not json", None), {"/files/a.png", "/files/c.png"})
+		self.assertEqual(
+			patch_module._card_urls(legacy, notes, "not json", None), {"/files/a.png", "/files/c.png"}
+		)
 
 	def test_an_archived_card_url_is_moved_and_the_archive_repointed(self):
 		if not frappe.db.table_exists(patch_module.ARCHIVE):
@@ -165,7 +167,9 @@ class TestMakeCardImagesPrivate(IntegrationTestCase):
 				"legacy_values": json.dumps({"fields": {"custom_front_card_image": card.file_url}}),
 			}
 		).insert(ignore_permissions=True)
-		self.addCleanup(lambda: (frappe.db.delete(patch_module.ARCHIVE, {"name": archive.name}), frappe.db.commit()))
+		self.addCleanup(
+			lambda: (frappe.db.delete(patch_module.ARCHIVE, {"name": archive.name}), frappe.db.commit())
+		)
 		frappe.db.commit()
 
 		summary = patch_module.execute(names=[card.name])

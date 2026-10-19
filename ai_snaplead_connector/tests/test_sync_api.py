@@ -106,7 +106,8 @@ def _ensure_address_template():
 	frappe.get_doc(
 		{
 			"doctype": "Address Template",
-			"country": frappe.db.get_value("Country", {"name": "India"}) or frappe.db.get_value("Country", {}),
+			"country": frappe.db.get_value("Country", {"name": "India"})
+			or frappe.db.get_value("Country", {}),
 			"is_default": 1,
 			"template": "{{ address_line1 }}<br>{{ city }}<br>{{ state }}<br>{{ pincode }}",
 		}
@@ -120,9 +121,7 @@ def _remove_site_files():
 	outside that, so a test that really wrote a file has to remove the bytes itself or the
 	site accumulates an orphan on every run.
 	"""
-	for file_url in frappe.get_all(
-		"File", filters={"attached_to_doctype": "Lead"}, pluck="file_url"
-	):
+	for file_url in frappe.get_all("File", filters={"attached_to_doctype": "Lead"}, pluck="file_url"):
 		_remove_one_site_file(file_url)
 
 
@@ -228,9 +227,7 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 		Lead, the Contact ERPNext auto-creates with it and the link row must all be gone."""
 		before = _counts()
 
-		response = sync.upsert_lead_graph(
-			payload(address={"country": "Republic of Nowhere"})
-		)
+		response = sync.upsert_lead_graph(payload(address={"country": "Republic of Nowhere"}))
 
 		self.assertFailed(response, "VALIDATION_FAILED")
 		self.assertNothingWritten(before)
@@ -277,29 +274,37 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 		import os
 
 		self.addCleanup(_remove_site_files)
-		victim = frappe.get_doc({
-			"doctype": "Lead",
-			"first_name": "Victim",
-			"last_name": "Of File Discard",
-			"email_id": uniq_email("victim"),
-		}).insert(ignore_permissions=True)
-		card = frappe.get_doc({
-			"doctype": "File",
-			"file_name": "victim-card.png",
-			"attached_to_doctype": "Lead",
-			"attached_to_name": victim.name,
-			"is_private": 1,
-			"content": base64.b64decode(ONE_PIXEL_PNG),
-		}).insert(ignore_permissions=True)
+		victim = frappe.get_doc(
+			{
+				"doctype": "Lead",
+				"first_name": "Victim",
+				"last_name": "Of File Discard",
+				"email_id": uniq_email("victim"),
+			}
+		).insert(ignore_permissions=True)
+		card = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": "victim-card.png",
+				"attached_to_doctype": "Lead",
+				"attached_to_name": victim.name,
+				"is_private": 1,
+				"content": base64.b64decode(ONE_PIXEL_PNG),
+			}
+		).insert(ignore_permissions=True)
 		path = card.get_full_path()
 		self.assertTrue(os.path.exists(path), "no bytes on disk; the test would prove nothing")
 
-		response = sync.upsert_lead_graph(payload(attachments=[
-			# Byte-identical to the victim's card, so frappe hands back ITS file_url ...
-			{"file_name": "card-front.png", "content_base64": ONE_PIXEL_PNG, "kind": "front_card"},
-			# ... and then the push fails, which is an ordinary transport failure.
-			{"file_name": "card-back.png", "content_base64": "!!! truncated payload !!!"},
-		]))
+		response = sync.upsert_lead_graph(
+			payload(
+				attachments=[
+					# Byte-identical to the victim's card, so frappe hands back ITS file_url ...
+					{"file_name": "card-front.png", "content_base64": ONE_PIXEL_PNG, "kind": "front_card"},
+					# ... and then the push fails, which is an ordinary transport failure.
+					{"file_name": "card-back.png", "content_base64": "!!! truncated payload !!!"},
+				]
+			)
+		)
 
 		self.assertFailed(response, "VALIDATION_FAILED")
 		self.assertTrue(os.path.exists(path), "the rollback deleted another record's bytes")
@@ -333,10 +338,14 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 
 		# The failure has to come AFTER the write, so it is the second attachment that is
 		# broken -- the first one really does put bytes on the client's disk first.
-		response = sync.upsert_lead_graph(payload(attachments=[
-			{"file_name": "orphan.png", "content_base64": unique_png},
-			{"file_name": "orphan-back.png", "content_base64": "!!! truncated payload !!!"},
-		]))
+		response = sync.upsert_lead_graph(
+			payload(
+				attachments=[
+					{"file_name": "orphan.png", "content_base64": unique_png},
+					{"file_name": "orphan-back.png", "content_base64": "!!! truncated payload !!!"},
+				]
+			)
+		)
 		sync._attach_files = real_attach
 
 		self.assertFailed(response, "VALIDATION_FAILED")
@@ -550,7 +559,12 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 					"emails": [],
 					"phones": [default_phone],
 				},
-				address={"address_line1": "Plot 9, Industrial Estate", "city": "", "state": "Gujarat", "pincode": ""},
+				address={
+					"address_line1": "Plot 9, Industrial Estate",
+					"city": "",
+					"state": "Gujarat",
+					"pincode": "",
+				},
 			)
 		)
 
@@ -558,7 +572,9 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 		defaults = response["defaults_applied"]
 		self.assertEqual(defaults.get("lead.lead_name"), default_phone.replace(" ", ""))
 		self.assertEqual(defaults.get("address.city"), sync.DEFAULT_ADDRESS_CITY)
-		self.assertEqual(frappe.db.get_value("Address", response["address"], "city"), sync.DEFAULT_ADDRESS_CITY)
+		self.assertEqual(
+			frappe.db.get_value("Address", response["address"], "city"), sync.DEFAULT_ADDRESS_CITY
+		)
 
 	def test_a_lead_without_an_address_block_gets_no_address(self):
 		before = _counts()
@@ -576,7 +592,12 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 		response = sync.upsert_lead_graph(
 			payload(
 				attachments=[
-					{"file_name": "front.png", "content_base64": ONE_PIXEL_PNG, "kind": "front_card", "is_private": 1}
+					{
+						"file_name": "front.png",
+						"content_base64": ONE_PIXEL_PNG,
+						"kind": "front_card",
+						"is_private": 1,
+					}
 				]
 			)
 		)
@@ -603,7 +624,6 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 					},
 				)
 			)
-
 
 	def test_a_corrupt_attachment_is_a_payload_error_not_a_retry(self):
 		"""Bytes that are not the image the file name claims fail inside frappe's image
@@ -689,9 +709,7 @@ class TestUpsertLeadGraphIdempotency(ConnectorAPITestCase):
 		self.assertEqual(after["Lead"], before["Lead"] + 1)
 		self.assertEqual(after["Address"], before["Address"] + 1)
 		self.assertEqual(after["Connector Lead Link"], before["Connector Lead Link"] + 1)
-		self.assertEqual(
-			frappe.db.get_value("Lead", first["lead"], "company_name"), "Verma Textiles Pvt Ltd"
-		)
+		self.assertEqual(frappe.db.get_value("Lead", first["lead"], "company_name"), "Verma Textiles Pvt Ltd")
 		self.assertEqual(frappe.db.get_value("Address", first["address"], "address_line1"), "14 MG Road")
 
 	def test_a_lead_pushed_before_this_protocol_is_adopted_not_duplicated(self):
@@ -934,9 +952,7 @@ class TestAdoptionIsNotAWriteByPrimaryKey(ConnectorAPITestCase):
 		error = self.assertFailed(response, "CONFLICT", status=409)
 		self.assertEqual(error["field"], "legacy_remote_name")
 		self.assertNothingWritten(before)
-		self.assertEqual(
-			frappe.db.get_value("Lead", victim.name, "company_name"), "Preexisting Co 2"
-		)
+		self.assertEqual(frappe.db.get_value("Lead", victim.name, "company_name"), "Preexisting Co 2")
 		self.assertEqual(_lead_emails(victim.name), [email])
 
 	def test_adopting_a_lead_keeps_the_contact_details_the_client_already_had(self):
@@ -985,9 +1001,7 @@ class TestAdoptionIsNotAWriteByPrimaryKey(ConnectorAPITestCase):
 		self.assertEqual(_lead_emails(victim.name), sorted([known, only_on_client, new_email]))
 
 		contact_emails = sorted(
-			frappe.get_all(
-				"Contact Email", filters={"parent": response["contact"]}, pluck="email_id"
-			)
+			frappe.get_all("Contact Email", filters={"parent": response["contact"]}, pluck="email_id")
 		)
 		self.assertEqual(contact_emails, sorted([known, only_on_client, new_email]))
 
@@ -1122,8 +1136,13 @@ class TestAnAddressKeepsWhatThePayloadDoesNotSend(ConnectorAPITestCase):
 				vc_uuid=frappe.db.get_value("Connector Lead Link", first["link"], "vc_uuid"),
 				request_id=frappe.generate_hash(length=16),
 				lead={"status": "Open"},
-				address={"address_line1": "Plot 9, MIDC", "city": "Pune", "country": "India",
-					"state": "Maharashtra", "pincode": None},
+				address={
+					"address_line1": "Plot 9, MIDC",
+					"city": "Pune",
+					"country": "India",
+					"state": "Maharashtra",
+					"pincode": None,
+				},
 			)
 		)
 
@@ -1183,8 +1202,13 @@ class TestAnAddressKeepsWhatThePayloadDoesNotSend(ConnectorAPITestCase):
 			payload(
 				vc_uuid=frappe.db.get_value("Connector Lead Link", first["link"], "vc_uuid"),
 				lead={"status": "Open"},
-				address={"address_line1": "Central HQ, 5th Floor", "city": "Delhi", "state": "Delhi",
-					"country": "India", "pincode": None},
+				address={
+					"address_line1": "Central HQ, 5th Floor",
+					"city": "Delhi",
+					"state": "Delhi",
+					"country": "India",
+					"pincode": None,
+				},
 			)
 		)
 
@@ -1243,8 +1267,12 @@ class TestTheAdoptionMergeSurvivesTheNextPush(ConnectorAPITestCase):
 				legacy_remote_name=victim.name,
 				address={},
 				lead={
-					"first_name": None, "last_name": None, "lead_name": "ADV Merge Victim",
-					"company_name": "AdvCo", "emails": [central_email], "phones": [central_phone],
+					"first_name": None,
+					"last_name": None,
+					"lead_name": "ADV Merge Victim",
+					"company_name": "AdvCo",
+					"emails": [central_email],
+					"phones": [central_phone],
 					"status": "Lead",
 				},
 			)
@@ -1262,8 +1290,12 @@ class TestTheAdoptionMergeSurvivesTheNextPush(ConnectorAPITestCase):
 				vc_uuid=uuid,
 				address={},
 				lead={
-					"first_name": None, "last_name": None, "lead_name": "ADV Merge Victim",
-					"company_name": "AdvCo", "emails": [central_email], "phones": [central_phone],
+					"first_name": None,
+					"last_name": None,
+					"lead_name": "ADV Merge Victim",
+					"company_name": "AdvCo",
+					"emails": [central_email],
+					"phones": [central_phone],
 					"status": "Open",
 				},
 			)
@@ -1301,8 +1333,12 @@ class TestTheAdoptionMergeSurvivesTheNextPush(ConnectorAPITestCase):
 				vc_uuid=uuid,
 				address={},
 				lead={
-					"first_name": None, "last_name": None, "lead_name": "ADV Merge Victim",
-					"company_name": "AdvCo", "emails": [central_email], "phones": [central_phone],
+					"first_name": None,
+					"last_name": None,
+					"lead_name": "ADV Merge Victim",
+					"company_name": "AdvCo",
+					"emails": [central_email],
+					"phones": [central_phone],
 					"status": "Replied",
 				},
 			)
@@ -1321,9 +1357,13 @@ class TestTheAdoptionMergeSurvivesTheNextPush(ConnectorAPITestCase):
 				vc_uuid=uuid,
 				address={},
 				lead={
-					"first_name": None, "last_name": None, "lead_name": "ADV Merge Victim",
-					"company_name": "AdvCo", "emails": [central_email, client_email],
-					"phones": [central_phone], "status": "Open",
+					"first_name": None,
+					"last_name": None,
+					"lead_name": "ADV Merge Victim",
+					"company_name": "AdvCo",
+					"emails": [central_email, client_email],
+					"phones": [central_phone],
+					"status": "Open",
 				},
 			)
 		)
@@ -1335,8 +1375,12 @@ class TestTheAdoptionMergeSurvivesTheNextPush(ConnectorAPITestCase):
 				vc_uuid=uuid,
 				address={},
 				lead={
-					"first_name": None, "last_name": None, "lead_name": "ADV Merge Victim",
-					"company_name": "AdvCo", "emails": [central_email], "phones": [central_phone],
+					"first_name": None,
+					"last_name": None,
+					"lead_name": "ADV Merge Victim",
+					"company_name": "AdvCo",
+					"emails": [central_email],
+					"phones": [central_phone],
 					"status": "Open",
 				},
 			)
@@ -1551,9 +1595,7 @@ class TestAConcurrentDeskSaveIsRetryable(ConnectorAPITestCase):
 	"""
 
 	def test_a_timestamp_mismatch_is_not_a_conflict(self):
-		exc = frappe.exceptions.TimestampMismatchError(
-			"Document has been modified after you have opened it"
-		)
+		exc = frappe.exceptions.TimestampMismatchError("Document has been modified after you have opened it")
 
 		code, message, field = sync._classify(exc)
 
@@ -1591,9 +1633,7 @@ class TestAConcurrentDeskSaveIsRetryable(ConnectorAPITestCase):
 		uuid = frappe.db.get_value("Connector Lead Link", first["link"], "vc_uuid")
 		before = _counts()
 
-		response = sync.upsert_lead_graph(
-			payload(vc_uuid=uuid, lead={"company_name": "Renamed Mid Flight"})
-		)
+		response = sync.upsert_lead_graph(payload(vc_uuid=uuid, lead={"company_name": "Renamed Mid Flight"}))
 
 		sync._save_doc = real_save
 
@@ -1601,18 +1641,12 @@ class TestAConcurrentDeskSaveIsRetryable(ConnectorAPITestCase):
 		error = self.assertFailed(response, "CONCURRENT_MODIFICATION", status=409)
 		self.assertTrue(error["retryable"], error)
 		self.assertNothingWritten(before)
-		self.assertNotEqual(
-			frappe.db.get_value("Lead", first["lead"], "company_name"), "Renamed Mid Flight"
-		)
+		self.assertNotEqual(frappe.db.get_value("Lead", first["lead"], "company_name"), "Renamed Mid Flight")
 
 		# ... and the very same bytes, re-sent, now succeed. That is what retryable means.
-		retry = sync.upsert_lead_graph(
-			payload(vc_uuid=uuid, lead={"company_name": "Renamed Mid Flight"})
-		)
+		retry = sync.upsert_lead_graph(payload(vc_uuid=uuid, lead={"company_name": "Renamed Mid Flight"}))
 		self.assertTrue(retry["ok"], retry)
-		self.assertEqual(
-			frappe.db.get_value("Lead", first["lead"], "company_name"), "Renamed Mid Flight"
-		)
+		self.assertEqual(frappe.db.get_value("Lead", first["lead"], "company_name"), "Renamed Mid Flight")
 
 
 class TestASecondaryContactIsNotAWayInForADuplicate(ConnectorAPITestCase):
@@ -1628,20 +1662,14 @@ class TestASecondaryContactIsNotAWayInForADuplicate(ConnectorAPITestCase):
 		primary = uniq_email("gamma-primary")
 		secondary = uniq_email("gamma-secondary")
 
-		first = sync.upsert_lead_graph(
-			payload(lead={"first_name": "Gamma", "emails": [primary, secondary]})
-		)
+		first = sync.upsert_lead_graph(payload(lead={"first_name": "Gamma", "emails": [primary, secondary]}))
 		self.assertTrue(first["ok"], first)
 		contact = frappe.get_doc("Contact", first["contact"])
-		self.assertEqual(
-			sorted(row.email_id for row in contact.email_ids), sorted([primary, secondary])
-		)
+		self.assertEqual(sorted(row.email_id for row in contact.email_ids), sorted([primary, secondary]))
 
 		before = _counts()
 		# Same person, same card, new central record, addresses the other way round.
-		response = sync.upsert_lead_graph(
-			payload(lead={"first_name": "Impostor", "emails": [secondary]})
-		)
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Impostor", "emails": [secondary]}))
 
 		self.assertFailed(response, "VALIDATION_FAILED")
 		self.assertNothingWritten(before)
@@ -1650,29 +1678,21 @@ class TestASecondaryContactIsNotAWayInForADuplicate(ConnectorAPITestCase):
 		primary = uniq_phone()
 		secondary = uniq_phone()
 
-		first = sync.upsert_lead_graph(
-			payload(lead={"first_name": "Gamma", "phones": [primary, secondary]})
-		)
+		first = sync.upsert_lead_graph(payload(lead={"first_name": "Gamma", "phones": [primary, secondary]}))
 		self.assertTrue(first["ok"], first)
 
 		before = _counts()
-		response = sync.upsert_lead_graph(
-			payload(lead={"first_name": "Impostor", "phones": [secondary]})
-		)
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Impostor", "phones": [secondary]}))
 
 		self.assertFailed(response, "VALIDATION_FAILED")
 		self.assertNothingWritten(before)
 
 	def test_an_unrelated_contact_still_lands(self):
 		"""The guard must refuse a duplicate, not every second Lead."""
-		first = sync.upsert_lead_graph(
-			payload(lead={"emails": [uniq_email("one"), uniq_email("one-alt")]})
-		)
+		first = sync.upsert_lead_graph(payload(lead={"emails": [uniq_email("one"), uniq_email("one-alt")]}))
 		self.assertTrue(first["ok"], first)
 
-		second = sync.upsert_lead_graph(
-			payload(lead={"emails": [uniq_email("two"), uniq_email("two-alt")]})
-		)
+		second = sync.upsert_lead_graph(payload(lead={"emails": [uniq_email("two"), uniq_email("two-alt")]}))
 
 		self.assertTrue(second["ok"], second)
 		self.assertNotEqual(second["lead"], first["lead"])
@@ -1823,9 +1843,7 @@ class TestTheRequestWindowSaysWhenItCannotAnswer(ConnectorAPITestCase):
 		for index in range(1, sync.REQUEST_HISTORY_LIMIT + 1):
 			self.assertTrue(self._push(frappe.generate_hash(length=16), f"TITLE-{index:03d}")["ok"])
 
-		link = frappe.db.get_value(
-			"Connector Lead Link", {"vc_uuid": self.uuid}, "seen_request_ids"
-		)
+		link = frappe.db.get_value("Connector Lead Link", {"vc_uuid": self.uuid}, "seen_request_ids")
 		self.assertNotIn(first_id, sync._seen_request_ids(link))
 		self.assertGreaterEqual(sync._forgotten_request_count(link), 1)
 
@@ -2205,7 +2223,9 @@ class TestAnAddressKeepsEveryFieldThePayloadDoesNotSend(ConnectorAPITestCase):
 		)
 		address = first["address"]
 
-		self._push(uuid, email, phone, {"address_line1": "500 5th Avenue, Floor 3", "country": "United States"})
+		self._push(
+			uuid, email, phone, {"address_line1": "500 5th Avenue, Floor 3", "country": "United States"}
+		)
 
 		stored = self._stored(address)
 		self.assertEqual(stored.state, "New York")
@@ -2594,9 +2614,7 @@ class TestANewLeadReachesARealPerson(ConnectorAPITestCase):
 		behaviour -- not a Lead routed to whatever get_value happened to return."""
 		response = sync.upsert_lead_graph(**payload())
 		self.assertTrue(response["ok"], response)
-		self.assertEqual(
-			frappe.db.get_value("Lead", response["lead"], "lead_owner"), frappe.session.user
-		)
+		self.assertEqual(frappe.db.get_value("Lead", response["lead"], "lead_owner"), frappe.session.user)
 
 	def test_an_owner_that_no_longer_exists_does_not_lose_the_lead(self):
 		"""A User can be deleted after the setting names it. Losing a lead over a stale
@@ -2605,6 +2623,4 @@ class TestANewLeadReachesARealPerson(ConnectorAPITestCase):
 
 		response = sync.upsert_lead_graph(**payload())
 		self.assertTrue(response["ok"], response)
-		self.assertEqual(
-			frappe.db.get_value("Lead", response["lead"], "lead_owner"), frappe.session.user
-		)
+		self.assertEqual(frappe.db.get_value("Lead", response["lead"], "lead_owner"), frappe.session.user)

@@ -272,9 +272,7 @@ def storable_phones(raw):
 	if not runs:
 		return []
 
-	significant = [
-		run for run in runs if run[3] and len(_digits(run[2])) >= MIN_SIGNIFICANT_DIGITS
-	]
+	significant = [run for run in runs if run[3] and len(_digits(run[2])) >= MIN_SIGNIFICANT_DIGITS]
 	if not significant:
 		if any(len(_digits(run[2])) >= MIN_SIGNIFICANT_DIGITS for run in runs):
 			# There IS a full number in this value; it is simply one this site cannot store

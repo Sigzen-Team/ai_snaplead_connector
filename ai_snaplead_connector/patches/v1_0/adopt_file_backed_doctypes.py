@@ -84,10 +84,13 @@ def _shipped_field_order(doctype):
 	Field. The caller leaves such a DocType alone instead.
 	"""
 	folder = frappe.scrub(doctype)
-	path = frappe.get_app_path("ai_snaplead_connector", "ai_snaplead_connector", "doctype", folder, folder + ".json")
+	path = frappe.get_app_path(
+		"ai_snaplead_connector", "ai_snaplead_connector", "doctype", folder, folder + ".json"
+	)
 
 	try:
-		with open(path) as definition_file:  # nosemgrep - path is built from frappe.get_app_path and fixed names inside this app, never from input
+		# Safe to open: path is built from frappe.get_app_path and fixed names inside this app, never from input
+		with open(path) as definition_file:  # nosemgrep
 			definition = json.load(definition_file)
 	except (OSError, ValueError):
 		return None

@@ -111,7 +111,7 @@ def renamed_patch(patch, old=OLD_APP, new=NEW_APP):
 	prefix = f"{old}."
 	if not (patch or "").startswith(prefix):
 		return None
-	return f"{new}.{patch[len(prefix):]}"
+	return f"{new}.{patch[len(prefix) :]}"
 
 
 def _has_column(doctype, column):
@@ -168,7 +168,10 @@ def rename_patch_log(old=OLD_APP, new=NEW_APP, dry_run=False):
 	"""Without this every patch of the app would run again under its new name."""
 	table = frappe.qb.DocType("Patch Log")
 	rows = (
-		frappe.qb.from_(table).select(table.name, table.patch).where(table.patch.like(f"{old}.%")).run(as_dict=True)
+		frappe.qb.from_(table)
+		.select(table.name, table.patch)
+		.where(table.patch.like(f"{old}.%"))
+		.run(as_dict=True)
 	)
 	changed = 0
 	for row in rows:

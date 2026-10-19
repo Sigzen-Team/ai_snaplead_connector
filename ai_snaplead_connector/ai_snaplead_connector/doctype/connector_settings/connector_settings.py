@@ -204,4 +204,10 @@ def repair_business_id(business_id: str, confirm_relink: int | str = 0):
 
 	frappe.db.commit()  # nosemgrep - an operator repair run from the console, outside any request
 	frappe.clear_cache()
-	return {"changed": True, "from": current, "business_id": business_id, "relinked": counts["lead_links"], **counts}
+	return {
+		"changed": True,
+		"from": current,
+		"business_id": business_id,
+		"relinked": counts["lead_links"],
+		**counts,
+	}

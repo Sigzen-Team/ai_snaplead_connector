@@ -209,7 +209,9 @@ class TestPatchACopiesAndRepeats(LegacyMigrationTestCase):
 		frappe.db.delete("ERPNext Lead Mobile Number", {"parent": lead.name, "parenttype": "Lead"})
 
 		self.assertIsNone(migrate.migrate_lead(lead.name))
-		self.assertFalse(frappe.db.exists("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}))
+		self.assertFalse(
+			frappe.db.exists("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"})
+		)
 
 	def test_emails_and_phones_land_on_the_contact_once(self):
 		email = _uniq("both") + "@vclegacy.example"
@@ -236,7 +238,9 @@ class TestPatchACopiesAndRepeats(LegacyMigrationTestCase):
 		self.assertIsNotNone(migrate.migrate_lead(lead.name))
 		self.assertIsNone(migrate.migrate_lead(lead.name))
 
-		row = frappe.db.get_value("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name")
+		row = frappe.db.get_value(
+			"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name"
+		)
 		frappe.db.set_value("Connector Legacy Field Archive", row, "migration_status", "Failed")
 		self.assertIsNotNone(
 			migrate.migrate_lead(lead.name),
@@ -296,7 +300,9 @@ class TestPatchACopiesAndRepeats(LegacyMigrationTestCase):
 			)
 		)
 		# It must not block the drop for the whole site for ever.
-		self.assertEqual(verify._verify_card_images(lead.name, migrate.read_legacy_lead(lead.name), notes), [])
+		self.assertEqual(
+			verify._verify_card_images(lead.name, migrate.read_legacy_lead(lead.name), notes), []
+		)
 
 	def test_a_real_attachment_is_reparented_not_reuploaded(self):
 		lead = _make_lead()
@@ -389,14 +395,14 @@ class TestVerificationGate(LegacyMigrationTestCase):
 	def test_undoing_the_migration_reopens_the_lead_for_a_retry(self):
 		lead = _make_lead(custom_scanned_text="scanned")
 		migrate.migrate_lead(lead.name)
-		frappe.db.delete(
-			"CRM Note", {"parent": lead.name, "note": ("like", f"%{SCANNED_TEXT_TAG}%")}
-		)
+		frappe.db.delete("CRM Note", {"parent": lead.name, "note": ("like", f"%{SCANNED_TEXT_TAG}%")})
 
 		self.assertTrue(verify.verify_lead(lead.name))
 		self.assertGreaterEqual(verify.reset_failed_marks(), 1)
 		self.assertEqual(
-			frappe.db.get_value("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "migration_status"),
+			frappe.db.get_value(
+				"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "migration_status"
+			),
 			"Failed",
 		)
 
@@ -444,7 +450,10 @@ class TestPatchBRefusesAndArchives(LegacyMigrationTestCase):
 
 		archive.write_lead(lead.name)
 		row = frappe.db.get_value(
-			"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, ["legacy_values", "archived_on"], as_dict=True
+			"Connector Legacy Field Archive",
+			{"lookup_key": f"Lead|{lead.name}"},
+			["legacy_values", "archived_on"],
+			as_dict=True,
 		)
 		self.assertTrue(row.archived_on)
 
@@ -456,7 +465,6 @@ class TestPatchBRefusesAndArchives(LegacyMigrationTestCase):
 			[email],
 			"the child rows are the only copy once the Table field is dropped",
 		)
-
 
 
 @unittest.skipUnless(LEGACY_PRESENT, "the legacy Custom Fields have already been dropped")
@@ -475,7 +483,9 @@ class TestTheUndoButton(LegacyMigrationTestCase):
 	def _archived_payload(self, lead_name):
 		archive.write_lead(lead_name)
 		return json.loads(
-			frappe.db.get_value("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead_name}"}, "legacy_values")
+			frappe.db.get_value(
+				"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead_name}"}, "legacy_values"
+			)
 		)
 
 	def test_a_wiped_record_is_rebuilt_from_the_archive_alone(self):
@@ -545,16 +555,31 @@ class TestTheUndoButton(LegacyMigrationTestCase):
 	def test_the_report_distinguishes_the_two_zeroes(self):
 		"""Pure function, no DB: the sentence an operator reads has to differ."""
 		empty = restore._explain(
-			{"archive_rows": 0, "records_restored": 0, "records_already_intact": 0,
-			 "values_already_present": 0, "rows_restored": 0}
+			{
+				"archive_rows": 0,
+				"records_restored": 0,
+				"records_already_intact": 0,
+				"values_already_present": 0,
+				"rows_restored": 0,
+			}
 		)
 		intact = restore._explain(
-			{"archive_rows": 21, "records_restored": 0, "records_already_intact": 21,
-			 "values_already_present": 30, "rows_restored": 0}
+			{
+				"archive_rows": 21,
+				"records_restored": 0,
+				"records_already_intact": 21,
+				"values_already_present": 30,
+				"rows_restored": 0,
+			}
 		)
 		did_work = restore._explain(
-			{"archive_rows": 21, "records_restored": 21, "records_already_intact": 0,
-			 "values_already_present": 0, "rows_restored": 30}
+			{
+				"archive_rows": 21,
+				"records_restored": 21,
+				"records_already_intact": 0,
+				"values_already_present": 0,
+				"rows_restored": 30,
+			}
 		)
 
 		self.assertIn("archive is empty", empty)
@@ -577,8 +602,12 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 
 	def test_an_annotated_number_does_not_take_the_rest_of_the_lead_down(self):
 		lead = _make_lead(custom_pincode="411045", custom_scanned_text="Ravi Kumar, Pune")
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "080-25551234 Ext 22"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "080-25551234 Ext 22"},
+		)
 
 		notes = migrate.migrate_lead(lead.name)
 
@@ -591,11 +620,15 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 		self.assertEqual(verify.verify_lead(lead.name), [])
 
 	def test_the_annotation_itself_is_written_where_a_human_can_read_it(self):
-		""""Ext 22" is not storable on a Contact Phone row and is about to lose the Custom
+		""" "Ext 22" is not storable on a Contact Phone row and is about to lose the Custom
 		Field it lives on. It has to land somewhere on the Lead, or the drop destroys it."""
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "9876543210 (O)"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "9876543210 (O)"},
+		)
 
 		migrate.migrate_lead(lead.name)
 
@@ -603,18 +636,25 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 		self.assertTrue(notes, "no tagged note carries the value as printed")
 		self.assertIn("9876543210 (O)", "\n".join(notes))
 		self.assertTrue(
-			frappe.db.exists("Connector Log", {
-				"request_id": f"legacy-migration:{lead.name}",
-				"error_code": "CONTACT_VALUE_UNSTORABLE",
-			})
+			frappe.db.exists(
+				"Connector Log",
+				{
+					"request_id": f"legacy-migration:{lead.name}",
+					"error_code": "CONTACT_VALUE_UNSTORABLE",
+				},
+			)
 		)
 
 	def test_the_gate_refuses_while_that_note_is_missing(self):
 		"""The note is not decoration: it is the only copy after the drop, so the gate checks
 		for it. A gate that only looked at the Contact would pass and the value would be gone."""
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "9876543210 (O)"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "9876543210 (O)"},
+		)
 		migrate.migrate_lead(lead.name)
 		self.assertEqual(verify.verify_lead(lead.name), [])
 
@@ -624,15 +664,22 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 		self.assertTrue(any("tagged CRM Note" in reason for reason in reasons), reasons)
 		# ...and a re-run repairs it, so this is not a dead end.
 		frappe.db.set_value(
-			"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "migration_status", "Failed"
+			"Connector Legacy Field Archive",
+			{"lookup_key": f"Lead|{lead.name}"},
+			"migration_status",
+			"Failed",
 		)
 		migrate.migrate_lead(lead.name)
 		self.assertEqual(verify.verify_lead(lead.name), [])
 
 	def test_two_numbers_in_one_field_both_reach_the_contact(self):
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "+91 98765 43210, +91 98765 43211"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "+91 98765 43210, +91 98765 43211"},
+		)
 
 		migrate.migrate_lead(lead.name)
 
@@ -643,8 +690,12 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 
 	def test_a_number_that_cannot_be_read_at_all_is_a_note_not_a_crash(self):
 		lead = _make_lead(custom_pincode="411046")
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "call reception"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "call reception"},
+		)
 
 		self.assertIsNotNone(migrate.migrate_lead(lead.name))
 		self.assertIn("call reception", "\n".join(_notes_of(lead.name, UNSTORABLE_CONTACT_TAG)))
@@ -652,8 +703,9 @@ class TestAValueERPNextWillNotStore(LegacyMigrationTestCase):
 
 	def test_an_email_erpnext_refuses_does_not_abort_the_lead_either(self):
 		lead = _make_lead(custom_pincode="411047")
-		_add_legacy_row(lead.name, "custom_email_ids", "ERPNext Lead Email",
-			{"email_id": "ravi(at)example.com"})
+		_add_legacy_row(
+			lead.name, "custom_email_ids", "ERPNext Lead Email", {"email_id": "ravi(at)example.com"}
+		)
 
 		self.assertIsNotNone(migrate.migrate_lead(lead.name))
 		self.assertIn("ravi(at)example.com", "\n".join(_notes_of(lead.name, UNSTORABLE_CONTACT_TAG)))
@@ -670,8 +722,9 @@ class TestTwoNumbersAreNotOneNumber(LegacyMigrationTestCase):
 		Patch B drop the field it was the last copy in."""
 		lead = _make_lead()
 		for number in ("+1 212 555 0100", "+44 20 2125 550100"):
-			_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-				{"mobile_number": number})
+			_add_legacy_row(
+				lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number", {"mobile_number": number}
+			)
 
 		migrate.migrate_lead(lead.name)
 
@@ -684,8 +737,9 @@ class TestTwoNumbersAreNotOneNumber(LegacyMigrationTestCase):
 		"""Proof the check is real: remove one number from the Contact and the gate reports it."""
 		lead = _make_lead()
 		for number in ("+1 212 555 0100", "+44 20 2125 550100"):
-			_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-				{"mobile_number": number})
+			_add_legacy_row(
+				lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number", {"mobile_number": number}
+			)
 		migrate.migrate_lead(lead.name)
 
 		contact = _contact_of(lead.name)
@@ -699,8 +753,9 @@ class TestTwoNumbersAreNotOneNumber(LegacyMigrationTestCase):
 		"""The fix must not go the other way and write three rows for one number."""
 		lead = _make_lead()
 		for number in ("+91 98765 43219", "09876543219", "9876543219"):
-			_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-				{"mobile_number": number})
+			_add_legacy_row(
+				lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number", {"mobile_number": number}
+			)
 
 		migrate.migrate_lead(lead.name)
 
@@ -748,7 +803,10 @@ class TestTwoLeadsScannedFromOneCard(LegacyMigrationTestCase):
 		for _round in range(3):
 			for lead in (first.name, second.name):
 				frappe.db.set_value(
-					"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead}"}, "migration_status", "Failed"
+					"Connector Legacy Field Archive",
+					{"lookup_key": f"Lead|{lead}"},
+					"migration_status",
+					"Failed",
 				)
 				migrate.migrate_lead(lead)
 			self.assertEqual(verify.verify_lead(first.name), [])
@@ -773,9 +831,10 @@ class TestTwoLeadsScannedFromOneCard(LegacyMigrationTestCase):
 			frappe.db.count("File", {"file_url": owned.file_url}), 2, "the bytes must not be re-uploaded"
 		)
 		self.assertTrue(
-			frappe.db.exists("Connector Log", {
-				"request_id": f"legacy-migration:{claimant.name}", "error_code": "CARD_FILE_SHARED"
-			})
+			frappe.db.exists(
+				"Connector Log",
+				{"request_id": f"legacy-migration:{claimant.name}", "error_code": "CARD_FILE_SHARED"},
+			)
 		)
 
 
@@ -791,7 +850,9 @@ class TestADeletedLeadDoesNotBlockTheDrop(LegacyMigrationTestCase):
 	def test_the_orphan_row_is_closed_out_rather_than_blocking_for_ever(self):
 		lead = _make_lead(custom_pincode="411048")
 		migrate.migrate_lead(lead.name)
-		row = frappe.db.get_value("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name")
+		row = frappe.db.get_value(
+			"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name"
+		)
 		self.assertIsNone(frappe.db.get_value("Connector Legacy Field Archive", row, "archived_on"))
 
 		frappe.delete_doc("Lead", lead.name, force=True, delete_permanently=True, ignore_permissions=True)
@@ -799,7 +860,10 @@ class TestADeletedLeadDoesNotBlockTheDrop(LegacyMigrationTestCase):
 
 		self.assertIn(row, closed)
 		stamped = frappe.db.get_value(
-			"Connector Legacy Field Archive", row, ["archived_on", "migration_status", "migration_notes"], as_dict=True
+			"Connector Legacy Field Archive",
+			row,
+			["archived_on", "migration_status", "migration_notes"],
+			as_dict=True,
 		)
 		self.assertIsNotNone(stamped.archived_on, "still unarchived: Patch B would refuse for ever")
 		self.assertEqual(stamped.migration_status, "Orphaned")
@@ -809,7 +873,9 @@ class TestADeletedLeadDoesNotBlockTheDrop(LegacyMigrationTestCase):
 		"""The escape hatch must not become a way to skip a Lead that is really there."""
 		lead = _make_lead(custom_pincode="411049")
 		migrate.migrate_lead(lead.name)
-		row = frappe.db.get_value("Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name")
+		row = frappe.db.get_value(
+			"Connector Legacy Field Archive", {"lookup_key": f"Lead|{lead.name}"}, "name"
+		)
 
 		self.assertNotIn(row, archive.stamp_orphans())
 		self.assertIsNone(frappe.db.get_value("Connector Legacy Field Archive", row, "archived_on"))
@@ -843,8 +909,12 @@ class TestTwoAddressesInOneLegacyField(LegacyMigrationTestCase):
 
 	def test_a_comma_separated_pair_becomes_two_findable_rows(self):
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_email_ids", "ERPNext Lead Email",
-			{"email_id": "ravi@a.example, ravi.k@b.example"})
+		_add_legacy_row(
+			lead.name,
+			"custom_email_ids",
+			"ERPNext Lead Email",
+			{"email_id": "ravi@a.example, ravi.k@b.example"},
+		)
 
 		migrate.migrate_lead(lead.name)
 
@@ -864,11 +934,12 @@ class TestTwoAddressesInOneLegacyField(LegacyMigrationTestCase):
 		self.assertEqual(verify.verify_lead(lead.name), [])
 
 	def test_a_display_name_is_not_stored_as_the_address(self):
-		""""Ravi Kumar <ravi2@a.example>" used to be stored verbatim -- lower-cased, angle
+		""" "Ravi Kumar <ravi2@a.example>" used to be stored verbatim -- lower-cased, angle
 		brackets and all -- so a lookup for the address matched nothing."""
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_email_ids", "ERPNext Lead Email",
-			{"email_id": "Ravi Kumar <ravi2@a.example>"})
+		_add_legacy_row(
+			lead.name, "custom_email_ids", "ERPNext Lead Email", {"email_id": "Ravi Kumar <ravi2@a.example>"}
+		)
 
 		migrate.migrate_lead(lead.name)
 
@@ -890,8 +961,12 @@ class TestTwoAddressesInOneLegacyField(LegacyMigrationTestCase):
 		"""The gate has to be able to SEE the old bug, or it licenses the drop that makes it
 		permanent. Written as the old code wrote it: one row holding both addresses."""
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_email_ids", "ERPNext Lead Email",
-			{"email_id": "joint@a.example, joint.k@b.example"})
+		_add_legacy_row(
+			lead.name,
+			"custom_email_ids",
+			"ERPNext Lead Email",
+			{"email_id": "joint@a.example, joint.k@b.example"},
+		)
 
 		contact = migrate._get_or_create_contact(lead.name, {"lead_name": lead.lead_name})
 		contact.append("email_ids", {"email_id": "joint@a.example, joint.k@b.example"})
@@ -906,8 +981,12 @@ class TestTwoAddressesInOneLegacyField(LegacyMigrationTestCase):
 		"""The migration may lose a number. It may not invent one, and a fragment of an
 		annotation is exactly what the client would then dial."""
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "+91 (080) 2555-1234-5678 ext 9"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "+91 (080) 2555-1234-5678 ext 9"},
+		)
 
 		migrate.migrate_lead(lead.name)
 
@@ -923,8 +1002,12 @@ class TestTwoAddressesInOneLegacyField(LegacyMigrationTestCase):
 
 	def test_two_numbers_written_as_one_bracketed_run_both_reach_the_contact(self):
 		lead = _make_lead()
-		_add_legacy_row(lead.name, "custom_mobile_numbers", "ERPNext Lead Mobile Number",
-			{"mobile_number": "7011477004(7011477005)"})
+		_add_legacy_row(
+			lead.name,
+			"custom_mobile_numbers",
+			"ERPNext Lead Mobile Number",
+			{"mobile_number": "7011477004(7011477005)"},
+		)
 
 		migrate.migrate_lead(lead.name)
 

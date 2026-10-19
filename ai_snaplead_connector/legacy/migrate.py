@@ -161,7 +161,9 @@ def run(reset=False):
 
 			cursor = names[-1]
 			frappe.db.commit()
-			state.advance(cursor, totals["scanned"], totals["migrated"], totals["failed"], totals["conflicts"])
+			state.advance(
+				cursor, totals["scanned"], totals["migrated"], totals["failed"], totals["conflicts"]
+			)
 			frappe.db.commit()
 	except Exception:
 		frappe.db.rollback()
@@ -449,7 +451,8 @@ def _migrate_contacts(name, legacy):
 			"Lead {0}: ERPNext cannot store {1} as written on a Contact ({2}). The number(s) in"
 			" it were stored and the value as printed was added to the Lead's notes, so it"
 			" survives the drop of the legacy field.".format(
-				name, "these contact values" if len(unstorable) > 1 else "this contact value",
+				name,
+				"these contact values" if len(unstorable) > 1 else "this contact value",
 				"; ".join(unstorable),
 			),
 		)
@@ -654,16 +657,17 @@ def ensure_pincode_on_address(name, pincode, legacy=None):
 		return {"outcome": "empty"}
 
 	if legacy is None:
-		legacy = frappe.db.get_value(
-			"Lead", name, ["lead_name", "company_name", "city", "state", "country"], as_dict=True
-		) or frappe._dict()
+		legacy = (
+			frappe.db.get_value(
+				"Lead", name, ["lead_name", "company_name", "city", "state", "country"], as_dict=True
+			)
+			or frappe._dict()
+		)
 		if frappe.get_meta("Lead").has_field("custom_address"):
 			legacy["custom_address"] = frappe.db.get_value("Lead", name, "custom_address")
 
 	linked = _linked_documents("Address", name)
-	held = {
-		address: cstr(frappe.db.get_value("Address", address, "pincode")).strip() for address in linked
-	}
+	held = {address: cstr(frappe.db.get_value("Address", address, "pincode")).strip() for address in linked}
 
 	for address, existing in held.items():
 		if existing == pincode:
@@ -675,9 +679,7 @@ def ensure_pincode_on_address(name, pincode, legacy=None):
 			return {"outcome": "filled", "address": address}
 
 	conflicting = sorted(held.items())
-	address = _create_address(
-		name, legacy, pincode, address_type="Other", suffix=SCANNED_ADDRESS_SUFFIX
-	)
+	address = _create_address(name, legacy, pincode, address_type="Other", suffix=SCANNED_ADDRESS_SUFFIX)
 
 	if conflicting:
 		_log_once(
@@ -973,7 +975,12 @@ def _migrate_card_images(name, legacy):
 			f" A second File row ({sibling}) was created for this Lead pointing at the same"
 			" bytes, rather than taking the attachment away from that record.",
 		)
-		notes[fieldname] = {"outcome": "copied", "file": sibling, "file_url": url, "shared_with": rows[0].name}
+		notes[fieldname] = {
+			"outcome": "copied",
+			"file": sibling,
+			"file_url": url,
+			"shared_with": rows[0].name,
+		}
 
 	return notes
 
@@ -1006,9 +1013,7 @@ def _file_rows(url):
 
 def _own_file_row(rows, name):
 	"""The row already attached to THIS Lead, preferring one that needs no change."""
-	mine = [
-		row for row in rows if row.attached_to_doctype == "Lead" and row.attached_to_name == name
-	]
+	mine = [row for row in rows if row.attached_to_doctype == "Lead" and row.attached_to_name == name]
 	if not mine:
 		return None
 
@@ -1104,7 +1109,9 @@ def _migrate_business_id(name, legacy):
 	if not business_id:
 		return {"outcome": "empty"}
 
-	existing = frappe.db.get_value("Connector Lead Link", {"lead": name}, ["name", "business_id"], as_dict=True)
+	existing = frappe.db.get_value(
+		"Connector Lead Link", {"lead": name}, ["name", "business_id"], as_dict=True
+	)
 	if existing:
 		if not cstr(existing.business_id).strip():
 			frappe.db.set_value("Connector Lead Link", existing.name, "business_id", business_id)

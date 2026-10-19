@@ -59,7 +59,11 @@ review. Upgrade with `bench migrate`; nothing to configure.
   Connector" -> "AI SnapLead Connector" (folder `ai_snaplead_connector/ai_snaplead_connector/`),
   app title, sidebar, desk tile and workspace heading -> "AI SnapLead - Connector", workspace
   -> "AI SnapLead Connector" (route `/desk/ai-snaplead-connector`), assets under
-  `/assets/ai_snaplead_connector/`. The git repository keeps its name.
+  `/assets/ai_snaplead_connector/`.
+- **New repository.** Released from `Sigzen-Team/ai_snaplead_connector` (branch `master`),
+  named after the package. Release 1.0.0 was published from `sigzen_ai_scan_crm_connector`.
+- Code formatted with ruff 0.14.10 (the version Frappe pins); the standard Frappe
+  `.pre-commit-config.yaml` is included.
 - **Workspace route without "---".** The workspace was named "AI SnapLead - Connector", and a
   workspace's name is its route: frappe's slug only turns spaces into hyphens, so the URL read
   `/desk/ai-snaplead---connector`. The workspace is now named "AI SnapLead Connector"

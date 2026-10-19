@@ -249,7 +249,9 @@ def rename_app_icon(old, new):
 
 	frappe.db.sql("update `tabDesktop Icon` set name = %s, label = %s where name = %s", (new, new, old))
 	frappe.db.sql("update `tabDesktop Icon` set parent_icon = %s where parent_icon = %s", (new, old))
-	frappe.db.sql("update `tabHas Role` set parent = %s where parent = %s and parenttype = 'Desktop Icon'", (new, old))
+	frappe.db.sql(
+		"update `tabHas Role` set parent = %s where parent = %s and parenttype = 'Desktop Icon'", (new, old)
+	)
 	return True
 
 
@@ -305,7 +307,9 @@ def retire_legacy_link_icons():
 				   where name = %s""",
 				(WORKSPACE, WORKSPACE, row.name),
 			)
-			frappe.db.sql("update `tabDesktop Icon` set parent_icon = %s where parent_icon = %s", (WORKSPACE, row.name))
+			frappe.db.sql(
+				"update `tabDesktop Icon` set parent_icon = %s where parent_icon = %s", (WORKSPACE, row.name)
+			)
 			frappe.db.sql(
 				"update `tabHas Role` set parent = %s where parent = %s and parenttype = 'Desktop Icon'",
 				(WORKSPACE, row.name),

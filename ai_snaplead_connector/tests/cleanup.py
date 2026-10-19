@@ -49,9 +49,7 @@ def _sweep_contacts(existing):
 	# every real customer Contact looks "leaked" -- a test helper that deletes the client's
 	# address book. The snapshot below carries the same argument for the same reason.
 	leaked = [
-		name
-		for name in frappe.get_all("Contact", pluck="name", limit_page_length=0)
-		if name not in existing
+		name for name in frappe.get_all("Contact", pluck="name", limit_page_length=0) if name not in existing
 	]
 	if not leaked:
 		return
@@ -68,9 +66,7 @@ def _sweep_contacts(existing):
 
 	for name in leaked:
 		try:
-			frappe.delete_doc(
-				"Contact", name, ignore_permissions=True, force=True, delete_permanently=True
-			)
+			frappe.delete_doc("Contact", name, ignore_permissions=True, force=True, delete_permanently=True)
 		except Exception:
 			# A Contact something still links to is not worth failing an otherwise passing run
 			# over; the next class's sweep collects it once that link is gone.

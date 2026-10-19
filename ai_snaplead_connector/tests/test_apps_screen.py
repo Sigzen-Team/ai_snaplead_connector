@@ -53,9 +53,7 @@ class TestTheAppIsReachable(LeavesNoContactsBehind, IntegrationTestCase):
 
 	def test_everyone_offered_the_tile_can_open_the_workspace(self):
 		allowed = set(
-			frappe.get_all(
-				"Has Role", filters={"parent": WORKSPACE, "parenttype": "Workspace"}, pluck="role"
-			)
+			frappe.get_all("Has Role", filters={"parent": WORKSPACE, "parenttype": "Workspace"}, pluck="role")
 		)
 		self.assertTrue(allowed, "an unrestricted workspace would make this test vacuous")
 
@@ -89,9 +87,7 @@ class TestTheAppIsReachable(LeavesNoContactsBehind, IntegrationTestCase):
 		).insert(ignore_permissions=True)
 		frappe.db.commit()
 		self.addCleanup(frappe.db.commit)
-		self.addCleanup(
-			lambda: frappe.delete_doc("User", email, force=True, ignore_permissions=True)
-		)
+		self.addCleanup(lambda: frappe.delete_doc("User", email, force=True, ignore_permissions=True))
 		frappe.clear_cache(user=user.name)
 		return user.name
 

@@ -22,9 +22,9 @@ dependencies = [
 [project.urls]
 # The source of record. Frappe Cloud can only install from a repository it can reach, so
 # when this is mirrored to a public host these three lines move with it (see MARKETPLACE.md).
-Homepage = "http://192.168.1.51/Sigzen-Team/sigzen_ai_scan_crm_connector"
-Repository = "http://192.168.1.51/Sigzen-Team/sigzen_ai_scan_crm_connector.git"
-Changelog = "http://192.168.1.51/Sigzen-Team/sigzen_ai_scan_crm_connector/-/blob/master/CHANGELOG.md"
+Homepage = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector"
+Repository = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector.git"
+Changelog = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector/-/blob/master/CHANGELOG.md"
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]

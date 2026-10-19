@@ -11,7 +11,7 @@ and with the card photos attached.
 | | |
 | --- | --- |
 | App name | `ai_snaplead_connector` |
-| Version | 1.0.0 |
+| Version | 1.1.0 |
 | Works with | Frappe 16, ERPNext 16 |
 | Licence | MIT |
 | Publisher | Sigzen Solutions |
@@ -75,7 +75,7 @@ Tested on MariaDB 10.11, which Frappe Cloud uses, and on SQLite.
 ### Self-hosted bench
 
 ```bash
-bench get-app ai_snaplead_connector <repository-url> --branch master
+bench get-app ai_snaplead_connector http://192.168.1.51/Sigzen-Team/ai_snaplead_connector.git --branch master
 bench --site <your-site> install-app ai_snaplead_connector
 bench --site <your-site> migrate
 ```
@@ -104,8 +104,9 @@ want AI SnapLead to finish steps 3 and 4 for you (see below).
 
 Open **Connector Settings** from the workspace.
 
-- **Business ID**: your AI SnapLead business ID. It can be set only once, so check it before
-  saving.
+- **Business ID**: your AI SnapLead business ID. Check it before saving. Only a System
+  Manager can change it later; the form shows how many linked leads will move before it
+  saves.
 - **Enabled**: tick it.
 
 ### 3. Generate the connector token
@@ -115,9 +116,9 @@ once. Copy it. Only a hash of it is stored on your site.
 
 ### 4. Connect from AI SnapLead
 
-In the AI SnapLead mobile app, the business manager opens **Profile > ERPNext Settings** and
-enters your site address, the integration user and its password, then saves and tests the
-connection.
+The business owner or manager signs in to AI SnapLead, either on the website
+(**Dashboard > Connectors**) or in the mobile app (**Profile > ERPNext Settings**), enters your
+site address, the integration user and its password, then saves and clicks **Test Connection**.
 
 If the integration user is a System Manager, AI SnapLead creates the API key and the connector
 token by itself during this step. Otherwise, generate an API key for the user
@@ -178,7 +179,7 @@ bench --site <test-site> set-config allow_tests true
 bench --site <test-site> run-tests --app ai_snaplead_connector
 ```
 
-The suite has 228 tests and leaves no records behind. Run it on a test site, never on a site
+The suite has 275 tests and leaves no records behind. Run it on a test site, never on a site
 that is paired with a live AI SnapLead account: it rewrites the connector settings while it
 runs.
 

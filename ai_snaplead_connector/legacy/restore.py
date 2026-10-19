@@ -72,7 +72,9 @@ def restore(dry_run=False, force=False):
 		try:
 			payload = json.loads(row.legacy_values)
 		except (TypeError, ValueError):
-			report["skipped"].append(f"{row.reference_doctype} {row.reference_name}: unreadable legacy_values")
+			report["skipped"].append(
+				f"{row.reference_doctype} {row.reference_name}: unreadable legacy_values"
+			)
 			continue
 
 		if not frappe.db.exists(row.reference_doctype, row.reference_name):
@@ -136,7 +138,11 @@ def recreate_custom_fields():
 	missing = _missing_custom_fields()
 
 	fields = {
-		"Lead": [f for f in lead_legacy_fields(get_lead_source_fieldname()) if f["fieldname"] in missing.get("Lead", [])],
+		"Lead": [
+			f
+			for f in lead_legacy_fields(get_lead_source_fieldname())
+			if f["fieldname"] in missing.get("Lead", [])
+		],
 		source_doctype: [
 			f
 			for f in source_legacy_fields(source_doctype == "UTM Source")

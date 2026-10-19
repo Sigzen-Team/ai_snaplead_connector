@@ -9,7 +9,9 @@ app_name = "ai_snaplead_connector"
 # The Marketplace listing name and the Desk tile:
 app_title = "AI SnapLead - Connector"
 app_publisher = "Sigzen Solutions"
-app_description = "Receive business-card leads from AI SnapLead into ERPNext as standard Leads, Contacts and Addresses."
+app_description = (
+	"Receive business-card leads from AI SnapLead into ERPNext as standard Leads, Contacts and Addresses."
+)
 app_email = "support@sigzen.com"
 app_license = "mit"
 

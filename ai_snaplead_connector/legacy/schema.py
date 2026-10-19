@@ -104,6 +104,7 @@ def is_scanned_address_title(title):
 	"""Did the migration create this Address to hold a pincode it refused to overwrite?"""
 	return (title or "").strip().endswith(SCANNED_ADDRESS_SUFFIX.strip())
 
+
 SCANNED_TEXT_TAG = "<!--vc-connector:scanned_text-->"
 
 # Marks the CRM Note that carries a contact detail ERPNext refuses to store on a Contact --

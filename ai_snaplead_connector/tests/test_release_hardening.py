@@ -162,9 +162,15 @@ class TestBusinessIdRestampIsBulk(SettingsTestCase):
 			if self.has_lead_stamp:
 				frappe.db.set_value("Lead", lead.name, "custom_business_id", business, update_modified=False)
 			link = frappe.get_doc(
-				{"doctype": "Connector Lead Link", "vc_uuid": frappe.generate_hash(length=12), "lead": lead.name}
+				{
+					"doctype": "Connector Lead Link",
+					"vc_uuid": frappe.generate_hash(length=12),
+					"lead": lead.name,
+				}
 			).insert(ignore_permissions=True)
-			frappe.db.set_value("Connector Lead Link", link.name, "business_id", business, update_modified=False)
+			frappe.db.set_value(
+				"Connector Lead Link", link.name, "business_id", business, update_modified=False
+			)
 
 		source_doctype = frappe.get_meta("Connector Source Link").get_field("source").options
 		for business in (self.old, self.old):
@@ -173,7 +179,11 @@ class TestBusinessIdRestampIsBulk(SettingsTestCase):
 				ignore_permissions=True
 			)
 			link = frappe.get_doc(
-				{"doctype": "Connector Source Link", "vc_uuid": frappe.generate_hash(length=12), "source": source}
+				{
+					"doctype": "Connector Source Link",
+					"vc_uuid": frappe.generate_hash(length=12),
+					"source": source,
+				}
 			).insert(ignore_permissions=True)
 			frappe.db.set_value(
 				"Connector Source Link", link.name, "business_id", business, update_modified=False

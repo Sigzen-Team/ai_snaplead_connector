@@ -106,7 +106,9 @@ def _matching_lead_rows(fieldname, values, case_insensitive):
 	comparison = Lower(column) if case_insensitive else column
 
 	return (
-		frappe.qb.from_(lead).select(lead.name.as_("lead"), column.as_("value")).where(comparison.isin(values))
+		frappe.qb.from_(lead)
+		.select(lead.name.as_("lead"), column.as_("value"))
+		.where(comparison.isin(values))
 	).run(as_dict=True)
 
 
@@ -171,7 +173,10 @@ def _candidate_business_stamp(lead_name):
 	try:
 		if not frappe.db.table_exists("Connector Lead Link"):
 			return None
-		return cstr(frappe.db.get_value("Connector Lead Link", {"lead": lead_name}, "business_id")).strip() or None
+		return (
+			cstr(frappe.db.get_value("Connector Lead Link", {"lead": lead_name}, "business_id")).strip()
+			or None
+		)
 	except Exception:
 		# Lead.validate also runs during install and migrate, where this app's own tables may
 		# not exist yet. A missing link table is "no stamp", never a failed save.
@@ -266,7 +271,11 @@ def find_duplicate_lead_by_contacts(business_ids, email_ids=None, mobile_numbers
 		if not values:
 			continue
 
-		rows = _matching_child_rows(child_doctype, child_field, values, case_insensitive) if search_child_tables else []
+		rows = (
+			_matching_child_rows(child_doctype, child_field, values, case_insensitive)
+			if search_child_tables
+			else []
+		)
 		rows += _matching_lead_rows(lead_field, values, case_insensitive)
 		rows += _matching_contact_rows(contact_doctype, contact_field, values, case_insensitive)
 
@@ -791,13 +800,9 @@ def release_dropped_contact_values(doc):
 	previous_mobile_keys = {phone_match_key(value) for value in previous_mobiles}
 
 	dropped_emails = {value for value in previous_emails if value not in current_emails}
-	dropped_mobile_keys = {
-		key for key in previous_mobile_keys if key and key not in current_mobile_keys
-	}
+	dropped_mobile_keys = {key for key in previous_mobile_keys if key and key not in current_mobile_keys}
 	added_emails = [value for value in current_emails if value not in previous_emails]
-	added_mobiles = [
-		value for value in current_mobiles if phone_match_key(value) not in previous_mobile_keys
-	]
+	added_mobiles = [value for value in current_mobiles if phone_match_key(value) not in previous_mobile_keys]
 
 	if not (dropped_emails or dropped_mobile_keys or added_emails or added_mobiles):
 		return
@@ -810,9 +815,7 @@ def release_dropped_contact_values(doc):
 		)
 
 
-def _apply_contact_diff(
-	doc, contact_name, dropped_emails, dropped_mobile_keys, added_emails, added_mobiles
-):
+def _apply_contact_diff(doc, contact_name, dropped_emails, dropped_mobile_keys, added_emails, added_mobiles):
 	"""Remove what the Lead released and add what it gained, on one Contact."""
 	contact = frappe.get_doc("Contact", contact_name)
 	changed = False

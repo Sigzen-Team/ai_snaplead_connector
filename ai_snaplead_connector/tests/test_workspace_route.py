@@ -68,9 +68,7 @@ class TestWorkspaceRoute(IntegrationTestCase):
 		self.assertTrue(path.endswith("workspace/ai_snaplead_connector/ai_snaplead_connector.json"), path)
 		with open(path) as handle:
 			declared = json.load(handle)
-		self.assertEqual(
-			(declared["name"], declared["label"], declared["title"]), (install.WORKSPACE,) * 3
-		)
+		self.assertEqual((declared["name"], declared["label"], declared["title"]), (install.WORKSPACE,) * 3)
 		# The heading inside the workspace keeps the visible title.
 		self.assertIn(f"<b>{install.APP_LABEL}</b>", declared["content"])
 
@@ -103,7 +101,9 @@ class TestWorkspaceRoute(IntegrationTestCase):
 			"Desktop Icon", {"label": install.WORKSPACE}, ["icon_type", "hidden", "parent_icon"], as_dict=True
 		)
 		self.assertTrue(link_icon, "the workspace's own Link icon is missing")
-		self.assertEqual((link_icon.icon_type, link_icon.hidden, link_icon.parent_icon or None), ("Link", 1, None))
+		self.assertEqual(
+			(link_icon.icon_type, link_icon.hidden, link_icon.parent_icon or None), ("Link", 1, None)
+		)
 
 	# -- the migrate repair -----------------------------------------------------------------
 
@@ -155,9 +155,7 @@ class TestWorkspaceRoute(IntegrationTestCase):
 			f"<b>{install.APP_LABEL}</b>", frappe.db.get_value("Workspace", install.WORKSPACE, "content")
 		)
 
-		self.assertEqual(
-			frappe.db.get_value("Workspace Sidebar", install.SIDEBAR, "title"), install.SIDEBAR
-		)
+		self.assertEqual(frappe.db.get_value("Workspace Sidebar", install.SIDEBAR, "title"), install.SIDEBAR)
 		self.assertTrue(
 			frappe.db.exists(
 				"Workspace Sidebar Item",
@@ -231,7 +229,9 @@ class TestWorkspaceRoute(IntegrationTestCase):
 
 		self.assertTrue(frappe.db.exists("Workspace Sidebar", install.WORKSPACE))
 		self.assertFalse(frappe.db.exists("Workspace Sidebar Item", {"parent": install.WORKSPACE}))
-		self.assertNotIn(install.WORKSPACE, [sidebar.title for sidebar in auto_generate_sidebar_from_module()])
+		self.assertNotIn(
+			install.WORKSPACE, [sidebar.title for sidebar in auto_generate_sidebar_from_module()]
+		)
 		self.assertFalse(install._ensure_sidebar_placeholder())
 
 	def test_a_generated_sidebar_under_the_workspace_name_is_emptied(self):
@@ -264,7 +264,9 @@ class TestWorkspaceRoute(IntegrationTestCase):
 		name = install.WORKSPACE
 		self.assertTrue(frappe.db.exists("Workspace Sidebar", name))
 		# The class rolls back only at its end; the next test must find the placeholder empty.
-		self.addCleanup(frappe.db.delete, "Workspace Sidebar Item", {"parent": name, "parenttype": "Workspace Sidebar"})
+		self.addCleanup(
+			frappe.db.delete, "Workspace Sidebar Item", {"parent": name, "parenttype": "Workspace Sidebar"}
+		)
 		for idx, item in enumerate(items, start=1):
 			frappe.get_doc(
 				{
@@ -299,7 +301,9 @@ class TestRenamedDeskRoutes(IntegrationTestCase):
 
 	def _run(self, path, method="GET", query=""):
 		previous = getattr(frappe.local, "request", None)
-		frappe.local.request = Request(EnvironBuilder(path=path, method=method, query_string=query).get_environ())
+		frappe.local.request = Request(
+			EnvironBuilder(path=path, method=method, query_string=query).get_environ()
+		)
 		try:
 			renamed_routes.redirect_renamed_desk_routes()
 		finally:

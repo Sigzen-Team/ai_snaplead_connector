@@ -102,7 +102,7 @@ class TestVendoredNormalisers(unittest.TestCase):
 		self.assertEqual(storable_phones("22"), ["22"])
 
 	def test_two_numbers_written_as_one_run_are_both_recovered(self):
-		""""7011477004(7011477005)" is 22 characters, so it was refused whole and BOTH real
+		""" "7011477004(7011477005)" is 22 characters, so it was refused whole and BOTH real
 		numbers reached only a note. Splitting at a bracket that opens a full number keeps
 		them, and the remainder is then empty because nothing was left behind."""
 		self.assertEqual(storable_phones("7011477004(7011477005)"), ["7011477004", "7011477005"])

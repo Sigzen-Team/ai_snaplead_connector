@@ -67,9 +67,7 @@ class TestAdoptFileBackedDoctypes(IntegrationTestCase):
 		carried_over = preserve_client_added_fields(CHILD_DOCTYPE)
 
 		self.assertEqual(carried_over, [CLIENT_FIELD])
-		self.assertTrue(
-			frappe.db.exists("Custom Field", {"dt": CHILD_DOCTYPE, "fieldname": CLIENT_FIELD})
-		)
+		self.assertTrue(frappe.db.exists("Custom Field", {"dt": CHILD_DOCTYPE, "fieldname": CLIENT_FIELD}))
 
 		# it is still a field of the DocType, which is the whole point: a Custom Field is the
 		# only carrier that survives the re-import of the shipped JSON.
@@ -86,6 +84,4 @@ class TestAdoptFileBackedDoctypes(IntegrationTestCase):
 		carried_over = preserve_client_added_fields(CHILD_DOCTYPE)
 
 		self.assertEqual(carried_over, [])
-		self.assertFalse(
-			frappe.db.exists("Custom Field", {"dt": CHILD_DOCTYPE, "fieldname": "email_id"})
-		)
+		self.assertFalse(frappe.db.exists("Custom Field", {"dt": CHILD_DOCTYPE, "fieldname": "email_id"}))

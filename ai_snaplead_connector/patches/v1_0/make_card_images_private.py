@@ -88,7 +88,10 @@ def _lead_refs():
 	for field in CARD_FIELDS:
 		if not frappe.db.has_column(LEAD, field):
 			continue
-		for lead_name, url in frappe.db.sql(  # nosemgrep - table/column names come from this module's fixed lists, never from input; values are bound parameters
+		for (
+			lead_name,
+			url,
+		) in frappe.db.sql(  # nosemgrep - table/column names come from this module's fixed lists, never from input; values are bound parameters
 			f"SELECT name, `{field}` FROM `tabLead` WHERE `{field}` LIKE %(prefix)s",
 			{"prefix": f"{PUBLIC_PREFIX}%"},
 		):
@@ -215,7 +218,9 @@ def _make_private(name, lead_refs, archive_refs):
 			)
 		# The archive is the legacy restore's source: it must not restore a dead public URL.
 		for archive_name in archive_refs.get(old_url, ()):
-			values = frappe.db.get_value(ARCHIVE, archive_name, ["legacy_values", "migration_notes"], as_dict=True)
+			values = frappe.db.get_value(
+				ARCHIVE, archive_name, ["legacy_values", "migration_notes"], as_dict=True
+			)
 			updates = {
 				key: value.replace(json.dumps(old_url), json.dumps(new_url))
 				for key, value in values.items()
@@ -260,7 +265,8 @@ def _unfinished_move(file_name, content_hash):
 		path = frappe.get_site_path("private", "files", candidate)
 		if not os.path.isfile(path):
 			continue
-		with open(path, "rb") as handle:  # nosemgrep - path = the site's private/files folder + a name generated here from a File row, not from request input
+		# Safe to open: path = the site's private/files folder + a name generated here from a File row, not from request input
+		with open(path, "rb") as handle:  # nosemgrep
 			if get_content_hash(handle.read()) != content_hash:
 				continue
 		other_owner = frappe.db.sql(

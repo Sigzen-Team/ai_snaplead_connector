@@ -12,10 +12,9 @@ longer exists. This runs as a before_request hook instead, and costs a prefix ch
 other request.
 """
 
+import frappe
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import redirect
-
-import frappe
 
 #: Old desk route -> new one.
 RENAMED_DESK_ROUTES = {

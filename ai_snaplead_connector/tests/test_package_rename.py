@@ -143,7 +143,9 @@ class TestUpgradeFromTheOldPackage(IntegrationTestCase):
 		).db_insert()
 		self.assertGreaterEqual(upgrade.rename_app_columns(old_app, new_app), 1)
 		self.assertGreaterEqual(upgrade.rewrite_asset_urls(old_app, new_app), 1)
-		row = frappe.db.get_value("Desktop Icon", {"label": "zz rename probe"}, ["app", "logo_url"], as_dict=True)
+		row = frappe.db.get_value(
+			"Desktop Icon", {"label": "zz rename probe"}, ["app", "logo_url"], as_dict=True
+		)
 		self.assertEqual(row.app, new_app)
 		self.assertEqual(row.logo_url, f"/assets/{new_app}/images/x.svg")
 		self.assertEqual(upgrade.rename_app_columns(old_app, new_app), 0, "a second run must find nothing")
@@ -177,7 +179,12 @@ class TestTheOldNameStillLoads(IntegrationTestCase):
 				# does not list, and at that moment the site lists only the old name.
 				self.assertEqual(hooks.before_migrate, [f"{old}.upgrade.before_migrate"])
 				self.assertTrue(callable(importlib.import_module(f"{old}.upgrade").before_migrate))
-				for name in ("doc_events", "override_whitelisted_methods", "after_migrate", "scheduler_events"):
+				for name in (
+					"doc_events",
+					"override_whitelisted_methods",
+					"after_migrate",
+					"scheduler_events",
+				):
 					self.assertFalse(hasattr(hooks, name), f"the stand-in must not carry {name}")
 
 	def test_each_stand_in_hands_its_own_name_to_the_upgrade(self):

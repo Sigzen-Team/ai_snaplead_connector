@@ -36,7 +36,7 @@ INTEGRATION_ROLE_PERMISSIONS = {
 #:
 #: APP_LABEL ("AI SnapLead - Connector") is what people read: the tile, the sidebar header and
 #: the heading inside the workspace.
-from ai_snaplead_connector.brand_rename import (  # noqa: E402
+from ai_snaplead_connector.brand_rename import (
 	APP_LABEL,
 	LEGACY_APP_LABELS,
 	LEGACY_WORKSPACES,
@@ -151,7 +151,9 @@ def ensure_workspace():
 			frappe.db.commit()
 		return changed
 	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("could not ensure the connector workspace", exc_info=True)
+		frappe.logger("ai_snaplead_connector").warning(
+			"could not ensure the connector workspace", exc_info=True
+		)
 		return False
 
 
@@ -211,7 +213,9 @@ def _in_savepoint(step, *args):
 		return step(*args)
 	except Exception:
 		frappe.db.rollback(save_point=sp)
-		frappe.logger("ai_snaplead_connector").warning(f"workspace repair step {step.__name__} failed", exc_info=True)
+		frappe.logger("ai_snaplead_connector").warning(
+			f"workspace repair step {step.__name__} failed", exc_info=True
+		)
 		return False
 
 
@@ -230,13 +234,16 @@ def workspace_json_path():
 	candidates = [expected]
 	if os.path.isdir(folder):
 		candidates += sorted(
-			os.path.join(folder, entry, f"{entry}.json") for entry in os.listdir(folder) if entry != frappe.scrub(WORKSPACE)
+			os.path.join(folder, entry, f"{entry}.json")
+			for entry in os.listdir(folder)
+			if entry != frappe.scrub(WORKSPACE)
 		)
 	for candidate in candidates:
 		if not os.path.isfile(candidate):
 			continue
 		try:
-			with open(candidate) as handle:  # nosemgrep - a path inside this app's own workspace folder, never from input
+			# Safe to open: a path inside this app's own workspace folder, never from input
+			with open(candidate) as handle:  # nosemgrep
 				if json.load(handle).get("name") == WORKSPACE:
 					return candidate
 		except ValueError:
@@ -256,15 +263,14 @@ def _sync_workspace_roles(path):
 	"""
 	import json
 
-	with open(path) as handle:  # nosemgrep - path is built from frappe.get_app_path and fixed names inside this app, never from input
+	# Safe to open: path is built from frappe.get_app_path and fixed names inside this app, never from input
+	with open(path) as handle:  # nosemgrep
 		declared = [row["role"] for row in (json.load(handle).get("roles") or []) if row.get("role")]
 	if not declared:
 		return False
 
 	existing = set(
-		frappe.get_all(
-			"Has Role", filters={"parent": WORKSPACE, "parenttype": "Workspace"}, pluck="role"
-		)
+		frappe.get_all("Has Role", filters={"parent": WORKSPACE, "parenttype": "Workspace"}, pluck="role")
 	)
 	missing = [role for role in declared if role not in existing and frappe.db.exists("Role", role)]
 	if not missing:
@@ -315,7 +321,9 @@ def report_duplicate_contacts_preflight():
 
 		report = duplicate_contacts_report()
 	except Exception:
-		frappe.logger("ai_snaplead_connector").warning("duplicate contact pre-flight could not run", exc_info=True)
+		frappe.logger("ai_snaplead_connector").warning(
+			"duplicate contact pre-flight could not run", exc_info=True
+		)
 		return None
 
 	emails = report.get("emails") or []
@@ -641,7 +649,9 @@ def _ensure_sidebar():
 			sidebar.title = SIDEBAR
 			sidebar.header_icon = frappe.db.get_value("Workspace", WORKSPACE, "icon")
 			sidebar.module = frappe.db.get_value("Workspace", WORKSPACE, "module")
-			sidebar.append("items", {"label": "Home", "type": "Link", "link_type": "Workspace", "link_to": WORKSPACE})
+			sidebar.append(
+				"items", {"label": "Home", "type": "Link", "link_type": "Workspace", "link_to": WORKSPACE}
+			)
 			sidebar.insert(ignore_permissions=True)
 			return True
 
@@ -703,7 +713,12 @@ def _ensure_desktop_icon():
 	if row:
 		if row.icon_type != "Link":
 			return False
-		if row.hidden and not row.parent_icon and row.link_type == "Workspace Sidebar" and row.link_to == SIDEBAR:
+		if (
+			row.hidden
+			and not row.parent_icon
+			and row.link_type == "Workspace Sidebar"
+			and row.link_to == SIDEBAR
+		):
 			return False
 		frappe.db.set_value(
 			"Desktop Icon",
@@ -740,11 +755,15 @@ def _ensure_app_icon():
 		return False
 	entry = entries[0]
 	sidebar_ready = bool(frappe.db.exists("Workspace Sidebar", SIDEBAR))
-	link = {"link_type": "Workspace Sidebar", "link_to": SIDEBAR, "link": ""} if sidebar_ready else {
-		"link_type": "External",
-		"link_to": None,
-		"link": entry.get("route"),
-	}
+	link = (
+		{"link_type": "Workspace Sidebar", "link_to": SIDEBAR, "link": ""}
+		if sidebar_ready
+		else {
+			"link_type": "External",
+			"link_to": None,
+			"link": entry.get("route"),
+		}
+	)
 
 	existing = frappe.db.get_value(
 		"Desktop Icon",
@@ -861,7 +880,8 @@ def _sync_workspace_header(path):
 	"""
 	import json
 
-	with open(path) as handle:  # nosemgrep - path is built from frappe.get_app_path and fixed names inside this app, never from input
+	# Safe to open: path is built from frappe.get_app_path and fixed names inside this app, never from input
+	with open(path) as handle:  # nosemgrep
 		declared = json.load(handle)
 
 	raw = frappe.db.get_value("Workspace", WORKSPACE, "content")
@@ -901,9 +921,7 @@ def _sync_workspace_header(path):
 				changed = True
 
 	if changed:
-		frappe.db.set_value(
-			"Workspace", WORKSPACE, "content", json.dumps(blocks), update_modified=False
-		)
+		frappe.db.set_value("Workspace", WORKSPACE, "content", json.dumps(blocks), update_modified=False)
 		frappe.clear_cache()
 	return changed
 
@@ -917,7 +935,8 @@ def _sync_workspace_label(path):
 	"""
 	import json
 
-	with open(path) as handle:  # nosemgrep - path is built from frappe.get_app_path and fixed names inside this app, never from input
+	# Safe to open: path is built from frappe.get_app_path and fixed names inside this app, never from input
+	with open(path) as handle:  # nosemgrep
 		declared = json.load(handle)
 	label = declared.get("label") or declared.get("title")
 	if not label:
@@ -931,9 +950,7 @@ def _sync_workspace_label(path):
 	# IT matched the function returned early and the rest kept the old name for ever.
 	changed = False
 	if current.label != label or current.title != label:
-		frappe.db.set_value(
-			"Workspace", WORKSPACE, {"label": label, "title": label}, update_modified=False
-		)
+		frappe.db.set_value("Workspace", WORKSPACE, {"label": label, "title": label}, update_modified=False)
 		changed = True
 
 	# The SIDEBAR's header reads its own copy: `Workspace Sidebar` is its own doctype, created
@@ -969,8 +986,22 @@ def _add_icon_to_saved_layouts():
 	icon = frappe.db.get_value(
 		"Desktop Icon",
 		{"icon_type": "App", "app": APP},
-		["name", "label", "app", "icon_type", "link_type", "link", "link_to", "logo_url",
-		 "icon", "icon_image", "bg_color", "idx", "hidden", "standard"],
+		[
+			"name",
+			"label",
+			"app",
+			"icon_type",
+			"link_type",
+			"link",
+			"link_to",
+			"logo_url",
+			"icon",
+			"icon_image",
+			"bg_color",
+			"idx",
+			"hidden",
+			"standard",
+		],
 		as_dict=True,
 	)
 	if not icon:

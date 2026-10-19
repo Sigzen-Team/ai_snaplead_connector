@@ -98,9 +98,7 @@ class TestLeadContacts(LeavesNoContactsBehind, IntegrationTestCase):
 		lead.append("custom_mobile_numbers", {"mobile_number": three})
 		lead.save(ignore_permissions=True)
 		lead.reload()
-		self.assertEqual(
-			[r.mobile_number for r in lead.custom_mobile_numbers], [one, two, three]
-		)
+		self.assertEqual([r.mobile_number for r in lead.custom_mobile_numbers], [one, two, three])
 
 		lead = frappe.get_doc("Lead", lead.name)
 		lead.mobile_no = fresh
@@ -122,9 +120,7 @@ class TestLeadContacts(LeavesNoContactsBehind, IntegrationTestCase):
 		old_email, old_mobile = uniq_email("legacyedit"), uniq_mobile()
 		new_email, new_mobile = uniq_email("new"), uniq_mobile()
 		lead = _make_lead(email_id=old_email, mobile_no=old_mobile)
-		frappe.db.set_value(
-			"Lead", lead.name, {"email_id": None, "mobile_no": None}, update_modified=False
-		)
+		frappe.db.set_value("Lead", lead.name, {"email_id": None, "mobile_no": None}, update_modified=False)
 
 		lead = frappe.get_doc("Lead", lead.name)
 		self.assertIsNone(lead.email_id)
@@ -139,9 +135,7 @@ class TestLeadContacts(LeavesNoContactsBehind, IntegrationTestCase):
 			[r.email_id for r in lead.custom_email_ids],
 			[new_email, old_email],
 		)
-		self.assertEqual(
-			[r.mobile_number for r in lead.custom_mobile_numbers], [new_mobile, old_mobile]
-		)
+		self.assertEqual([r.mobile_number for r in lead.custom_mobile_numbers], [new_mobile, old_mobile])
 
 	def test_a_child_table_only_push_still_gets_a_contact_with_contact_details(self):
 		"""ERPNext builds the auto-created Contact in before_insert, before validate ran."""
@@ -224,9 +218,7 @@ class TestLeadContacts(LeavesNoContactsBehind, IntegrationTestCase):
 		self.assertEqual(lead.email_id, email)
 		self.assertEqual(lead.mobile_no, mobile)
 		self.assertEqual([r.email_id for r in lead.custom_email_ids], [email])
-		self.assertEqual(
-			[r.mobile_number for r in lead.custom_mobile_numbers], [mobile]
-		)
+		self.assertEqual([r.mobile_number for r in lead.custom_mobile_numbers], [mobile])
 
 	def test_correcting_a_leads_only_contact_releases_the_old_value(self):
 		"""A mistyped number must not keep blocking the Lead that really owns it.
@@ -317,9 +309,9 @@ class TestTheLeadsContactReleasesWhatTheLeadDropped(LeavesNoContactsBehind, Inte
 		lead = _make_lead(mobile_no=original)
 
 		contact = frappe.get_doc("Contact", self._contact_of(lead.name))
-		contact.append("links", {"link_doctype": "Lead", "link_name": _make_lead(
-			mobile_no=uniq_mobile()
-		).name})
+		contact.append(
+			"links", {"link_doctype": "Lead", "link_name": _make_lead(mobile_no=uniq_mobile()).name}
+		)
 		contact.save(ignore_permissions=True)
 
 		lead.reload()

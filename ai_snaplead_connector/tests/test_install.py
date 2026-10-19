@@ -55,11 +55,7 @@ class InstallStateTestCase(IntegrationTestCase):
 		self.addCleanup(_restore_settings, _snapshot_settings())
 		self.addCleanup(
 			_restore_patch_log,
-			[
-				patch
-				for patch in install.LEGACY_PATCHES
-				if frappe.db.exists("Patch Log", {"patch": patch})
-			],
+			[patch for patch in install.LEGACY_PATCHES if frappe.db.exists("Patch Log", {"patch": patch})],
 		)
 
 	def _pretend(self, dropped, legacy_present):
@@ -118,9 +114,7 @@ class TestAReinstallOverLegacyFieldsRewindsThePatches(InstallStateTestCase):
 		# writing the end state would put the site back in the state this whole function
 		# exists to prevent -- the full historical field set, recreated for ever.
 		self.assertFalse(frappe.db.get_single_value(SETTINGS, "legacy_fields_dropped"))
-		self.assertEqual(
-			frappe.db.get_single_value(SETTINGS, "legacy_migration_message"), "untouched marker"
-		)
+		self.assertEqual(frappe.db.get_single_value(SETTINGS, "legacy_migration_message"), "untouched marker")
 
 
 class TestAFinishedSiteIsNeverResettled(InstallStateTestCase):
@@ -133,9 +127,7 @@ class TestAFinishedSiteIsNeverResettled(InstallStateTestCase):
 
 		install.settle_install_time_migration_state()
 
-		self.assertEqual(
-			frappe.db.get_single_value(SETTINGS, "legacy_migration_message"), "untouched marker"
-		)
+		self.assertEqual(frappe.db.get_single_value(SETTINGS, "legacy_migration_message"), "untouched marker")
 		for patch in install.LEGACY_PATCHES:
 			self.assertTrue(frappe.db.exists("Patch Log", {"patch": patch}), patch)
 
