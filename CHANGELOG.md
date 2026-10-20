@@ -11,8 +11,28 @@ breaking change for every central site in the field and gets its own major relea
 
 | App version | Protocol | Frappe | ERPNext |
 | --- | --- | --- | --- |
+| 1.1.1 | `vc-connector/1` | 16 (refused on < 16) | 16 |
 | 1.1.0 | `vc-connector/1` | 16 (refused on < 16) | 16 |
 | 1.0.0 | `vc-connector/1` | 16 (verified on 16.25.0 and 16.26.3) | 16 (verified on 16.26.2 and 16.27.0) |
+
+---
+
+## [1.1.1] — 2026-10-20
+
+Business ID is filled in during onboarding. Upgrade with `bench migrate`; nothing to configure.
+
+### Added
+
+- **`issue_connector_token(business_id=...)`.** AI SnapLead now sends the business it is
+  connecting for. If Connector Settings has no Business ID yet, it is set to that value, so
+  nobody has to open the ERPNext site to type it. If it already holds the same value, nothing
+  changes. If it holds a **different** one, the call is refused with `BUSINESS_MISMATCH`
+  (HTTP 403), no token is minted and nothing on the site changes: this ERPNext is already
+  linked to another AI SnapLead business, and only an ERPNext System Manager can move it, in
+  Connector Settings. A malformed id is refused with `VALIDATION_FAILED` (HTTP 422). The
+  endpoint stays POST-only and System Manager only.
+- Called without `business_id` (AI SnapLead before this release), the endpoint behaves exactly
+  as in 1.1.0.
 
 ---
 
