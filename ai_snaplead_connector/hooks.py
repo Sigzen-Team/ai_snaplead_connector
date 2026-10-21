@@ -52,9 +52,10 @@ add_to_apps_screen = [
 		# are created -- so a missing key leaves the CLIENT's whole site with no desktop
 		# icons, failing silently inside a print()-only except block.
 		#
-		# The AI SnapLead family mark (scan frame around a database: scanned cards landing in
-		# this ERPNext). images/vc-connector-logo.svg, the path 1.1.0 and earlier shipped, holds
-		# the same mark for icons that still point there; install.repair_desk() repoints them.
+		# The AI SnapLead - Connector mark (the AI SnapLead business card dropping into a tray,
+		# on navy: scanned cards landing in this ERPNext). images/vc-connector-logo.svg, the path
+		# 1.1.0 and earlier shipped, holds the same mark for icons that still point there;
+		# install.repair_desk() repoints them.
 		"logo": "/assets/ai_snaplead_connector/images/ai-snaplead-connector-logo.svg",
 		"title": "AI SnapLead - Connector",
 		# "/desk/...", not "/app/...". This Frappe renamed the desk mount: /app 301s to
