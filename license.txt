@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Sigzen Solutions (support@sigzen.com)
+Copyright (c) 2026 Sigzen Technologies Pvt. Ltd. (support@sigzen.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
