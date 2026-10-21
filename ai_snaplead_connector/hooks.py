@@ -29,8 +29,12 @@ required_apps = ["erpnext"]
 # Put the app on the /apps screen. Without this the app installs and works, but a client
 # has no way to FIND it: its doctypes are only reachable by typing a URL. The route points
 # at the app's own workspace rather than a custom page, so there is one place to configure.
-# No logo is declared - Frappe falls back to a generic tile, and shipping a Sigzen mark on a
-# client's own ERPNext would be wrong for an app published to the Marketplace.
+# The logo is the AI SnapLead - Connector mark (see the "logo" key below).
+#
+# app_logo_url is deliberately NOT set. Frappe already takes this app's logo for /apps, the
+# app switcher and the sidebar header from add_to_apps_screen. And navbar_settings.get_app_logo()
+# picks the site's navbar logo from the LIST of every app's app_logo_url by count -- with exactly
+# frappe + erpnext it shows ERPNext's; a third entry drops every client's navbar to the Frappe logo.
 #
 # has_permission is what stops the tile becoming a DEAD END. The route points at a
 # workspace whose `roles` are System Manager only, and Frappe does NOT cross-check the two:
@@ -48,11 +52,10 @@ add_to_apps_screen = [
 		# are created -- so a missing key leaves the CLIENT's whole site with no desktop
 		# icons, failing silently inside a print()-only except block.
 		#
-		# The mark is deliberately unbranded. This app is installed on a client's own
-		# ERPNext and published to the Marketplace; a Sigzen logo on their desk would be
-		# wrong, so it is a neutral link glyph that says what the app does and nothing
-		# about who wrote it.
-		"logo": "/assets/ai_snaplead_connector/images/vc-connector-logo.svg",
+		# The AI SnapLead family mark (scan frame around a database: scanned cards landing in
+		# this ERPNext). images/vc-connector-logo.svg, the path 1.1.0 and earlier shipped, holds
+		# the same mark for icons that still point there; install.repair_desk() repoints them.
+		"logo": "/assets/ai_snaplead_connector/images/ai-snaplead-connector-logo.svg",
 		"title": "AI SnapLead - Connector",
 		# "/desk/...", not "/app/...". This Frappe renamed the desk mount: /app 301s to
 		# /desk, and frappe.apps.is_desk_apps() matches every app's route against

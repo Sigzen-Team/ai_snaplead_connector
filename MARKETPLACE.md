@@ -21,7 +21,9 @@ Last reviewed: 2026-10-19, for release 1.1.0.
 - [x] **Documentation.** `docs/REFERENCE.md` (API, error codes, tenancy, duplicate protection),
       `FIELD_MAP.md`, `CHANGELOG.md`.
 - [x] **Identity on the desk.** App title, workspace, sidebar, tile and module are all
-      "AI SnapLead - Connector". A logo is shipped and declared in `add_to_apps_screen`.
+      "AI SnapLead - Connector". The logo (`public/images/ai-snaplead-connector-logo.svg`)
+      is shipped and declared in `add_to_apps_screen`; listing PNGs (512/256/128) and a
+      1200x630 banner are exported from the same SVG.
 - [x] **Installs cleanly on MariaDB**, the database Frappe Cloud runs: fresh `install-app` on a
       new site, then `migrate`, then the full suite twice.
 - [x] **Tests.** 275 tests, 0 failures on MariaDB and SQLite. The suite leaves no records
