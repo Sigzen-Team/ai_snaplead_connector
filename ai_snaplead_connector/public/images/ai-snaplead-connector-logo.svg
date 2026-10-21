@@ -1,16 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="AI SnapLead - Connector">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="64" height="64" role="img" aria-label="AI SnapLead - Connector">
   <title>AI SnapLead - Connector</title>
-  <!-- Same family as the AI SnapLead mark (orange rounded square, white scan-frame brackets,
-       3.5 round strokes). Where the app's mark has a scan line, the connector has a database:
-       scanned cards land in this ERPNext. Pure geometry, no third-party marks. -->
-  <rect width="64" height="64" rx="14" fill="#E8590C"/>
-  <g fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M17 25v-4a4 4 0 0 1 4-4h4"/>
-    <path d="M47 25v-4a4 4 0 0 0-4-4h-4"/>
-    <path d="M17 39v4a4 4 0 0 0 4 4h4"/>
-    <path d="M47 39v4a4 4 0 0 1-4 4h-4"/>
-    <ellipse cx="32" cy="25" rx="8" ry="3"/>
-    <path d="M24 25v14a8 3 0 0 0 16 0V25"/>
-    <path d="M24 32a8 3 0 0 0 16 0"/>
-  </g>
+  <!-- Navy field, the AI SnapLead business card (white, orange person and lines) dropping into an
+       orange tray: scanned cards arriving in this ERPNext. Pure geometry, no text, no third-party
+       marks; everything sits inside the central circle so a circular crop never cuts it. -->
+  <rect width="512" height="512" rx="112" fill="#1B2A4A"/>
+  <rect x="132" y="104" width="248" height="152" rx="22" fill="#FFFFFF"/>
+  <circle cx="190" cy="164" r="26" fill="#EB6A2A"/>
+  <path d="M152 230a38 30 0 0 1 76 0z" fill="#EB6A2A"/>
+  <rect x="246" y="148" width="108" height="18" rx="9" fill="#EB6A2A"/>
+  <rect x="246" y="184" width="83" height="16" rx="8" fill="#F5B48F"/>
+  <rect x="246" y="214" width="63" height="16" rx="8" fill="#F5B48F"/>
+  <path d="M256 282v62M224 314l32 32 32-32" fill="none" stroke="#EB6A2A" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 330h62a10 10 0 0 1 8.9 5.4l10.2 19.2a10 10 0 0 0 8.9 5.4h92a10 10 0 0 0 8.9-5.4l10.2-19.2a10 10 0 0 1 8.9-5.4h62v58a24 24 0 0 1-24 24H144a24 24 0 0 1-24-24z" fill="#EB6A2A"/>
 </svg>
