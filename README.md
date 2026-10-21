@@ -11,10 +11,10 @@ and with the card photos attached.
 | | |
 | --- | --- |
 | App name | `ai_snaplead_connector` |
-| Version | 1.1.0 |
+| Version | 1.1.1 |
 | Works with | Frappe 16, ERPNext 16 |
 | Licence | MIT |
-| Publisher | Sigzen Solutions |
+| Publisher | Sigzen Technologies Pvt. Ltd. |
 
 ## Features
 
@@ -104,9 +104,11 @@ want AI SnapLead to finish steps 3 and 4 for you (see below).
 
 Open **Connector Settings** from the workspace.
 
-- **Business ID**: your AI SnapLead business ID. Check it before saving. Only a System
-  Manager can change it later; the form shows how many linked leads will move before it
-  saves.
+- **Business ID**: your AI SnapLead business ID. It is filled in automatically when you
+  connect from AI SnapLead (step 4) with a System Manager user; otherwise set it here and
+  check it before saving. Only a System Manager can change it later; the form shows how many
+  linked leads will move before it saves. If this ERPNext is already linked to a different
+  business, connecting refuses with `BUSINESS_MISMATCH` instead of changing it.
 - **Enabled**: tick it.
 
 ### 3. Generate the connector token
@@ -121,7 +123,7 @@ The business owner or manager signs in to AI SnapLead, either on the website
 site address, the integration user and its password, then saves and clicks **Test Connection**.
 
 If the integration user is a System Manager, AI SnapLead creates the API key and the connector
-token by itself during this step. Otherwise, generate an API key for the user
+token, and fills in the Business ID, by itself during this step. Otherwise, generate an API key for the user
 (*User > API Access > Generate Keys*) and give the key, the secret and the token from step 3
 to your AI SnapLead administrator.
 

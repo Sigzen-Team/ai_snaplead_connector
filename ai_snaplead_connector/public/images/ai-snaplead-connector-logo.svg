@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="64" height="64" role="img" aria-label="AI SnapLead - Connector">
+  <title>AI SnapLead - Connector</title>
+  <!-- Navy field, the AI SnapLead business card (white, orange person and lines) dropping into an
+       orange tray: scanned cards arriving in this ERPNext. Pure geometry, no text, no third-party
+       marks; everything sits inside the central circle so a circular crop never cuts it. -->
+  <rect width="512" height="512" rx="112" fill="#1B2A4A"/>
+  <rect x="132" y="104" width="248" height="152" rx="22" fill="#FFFFFF"/>
+  <circle cx="190" cy="164" r="26" fill="#EB6A2A"/>
+  <path d="M152 230a38 30 0 0 1 76 0z" fill="#EB6A2A"/>
+  <rect x="246" y="148" width="108" height="18" rx="9" fill="#EB6A2A"/>
+  <rect x="246" y="184" width="83" height="16" rx="8" fill="#F5B48F"/>
+  <rect x="246" y="214" width="63" height="16" rx="8" fill="#F5B48F"/>
+  <path d="M256 282v62M224 314l32 32 32-32" fill="none" stroke="#EB6A2A" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M120 330h62a10 10 0 0 1 8.9 5.4l10.2 19.2a10 10 0 0 0 8.9 5.4h92a10 10 0 0 0 8.9-5.4l10.2-19.2a10 10 0 0 1 8.9-5.4h62v58a24 24 0 0 1-24 24H144a24 24 0 0 1-24-24z" fill="#EB6A2A"/>
+</svg>

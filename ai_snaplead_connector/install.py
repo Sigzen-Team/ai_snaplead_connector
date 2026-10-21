@@ -49,6 +49,14 @@ APP = "ai_snaplead_connector"
 #: (frappe.boot.workspace_sidebar_item[label.toLowerCase()]), so it carries the app's label.
 SIDEBAR = APP_LABEL
 
+#: Logos the app tile carried before 1.1.1 (the neutral link glyph). A tile still showing one
+#: of these is moved to the current logo on migrate; a logo the client picked is left alone.
+#: The old file is still shipped with the new mark in it, so a missed row is not broken either.
+LEGACY_LOGO_URLS = frozenset(
+	f"/assets/{package}/images/vc-connector-logo.svg"
+	for package in (APP, "vc_connector", "sigzen_ai_scan_crm_connector")
+)
+
 
 #: extend_doctype_class (hooks.py), which carries the whole Lead extension, exists only from
 #: Frappe v16. On v15 the hook is silently ignored and the app "installs" without it.
@@ -768,11 +776,18 @@ def _ensure_app_icon():
 	existing = frappe.db.get_value(
 		"Desktop Icon",
 		{"icon_type": "App", "app": APP},
-		["name", "label", "link_type", "link_to", "link"],
+		["name", "label", "link_type", "link_to", "link", "logo_url"],
 		as_dict=True,
 	)
 	if existing:
 		changes = {}
+		logo = entry.get("logo")
+		if (
+			logo
+			and existing.logo_url != logo
+			and (not existing.logo_url or existing.logo_url in LEGACY_LOGO_URLS)
+		):
+			changes["logo_url"] = logo
 		# Desktop Icon.label is UNIQUE: never hand it a label another row holds.
 		if existing.label != APP_LABEL and not frappe.db.exists("Desktop Icon", {"label": APP_LABEL}):
 			changes["label"] = APP_LABEL

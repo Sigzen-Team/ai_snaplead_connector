@@ -6,7 +6,7 @@
 
 app_name = "vc_connector"
 app_title = "AI SnapLead - Connector (old name, renamed on migrate)"
-app_publisher = "Sigzen Solutions"
+app_publisher = "Sigzen Technologies Pvt. Ltd."
 app_description = "Renames a site that installed the connector as vc_connector."
 app_email = "support@sigzen.com"
 app_license = "mit"
