@@ -34,6 +34,13 @@ Business ID is filled in during onboarding. Upgrade with `bench migrate`; nothin
 - Called without `business_id` (AI SnapLead before this release), the endpoint behaves exactly
   as in 1.1.0.
 
+### Changed
+
+- **New app logo.** The /apps screen, the desk tile and the workspace sidebar show the AI
+  SnapLead - Connector mark (`public/images/ai-snaplead-connector-logo.svg`) instead of the
+  generic link glyph. `bench migrate` moves an existing tile still on the old logo; a logo
+  the site chose itself is kept. The old file name serves the new mark too.
+
 ---
 
 ## [1.1.0] — 2026-10-19

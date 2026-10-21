@@ -111,6 +111,43 @@ class TestTheDesktopIconExists(IntegrationTestCase):
 		)
 		self.assertTrue(os.path.exists(path), f"{logo} does not exist on disk at {path}")
 
+	def test_the_old_logo_path_still_serves_the_mark(self):
+		"""Icons and saved layouts on installed sites may still name the 1.1.0 file."""
+		for name in ("vc-connector-logo.svg", "ai-snaplead-connector-logo.svg"):
+			with open(frappe.get_app_path(APP, "public", "images", name)) as handle:
+				self.assertIn("<title>AI SnapLead - Connector</title>", handle.read(), name)
+
+	def test_migrate_moves_the_tile_off_the_old_logo(self):
+		"""An app tile still showing the old link glyph gets the current logo; a client's own logo stays."""
+		from ai_snaplead_connector.install import _ensure_app_icon
+
+		name = frappe.db.get_value("Desktop Icon", {"icon_type": "App", "app": APP})
+		if not name:
+			self.skipTest("this site has no app tile")
+		logo = _entry()["logo"]
+		original = frappe.db.get_value("Desktop Icon", name, "logo_url")
+		self.addCleanup(
+			lambda: frappe.db.set_value("Desktop Icon", name, "logo_url", original, update_modified=False)
+		)
+
+		frappe.db.set_value(
+			"Desktop Icon",
+			name,
+			"logo_url",
+			f"/assets/{APP}/images/vc-connector-logo.svg",
+			update_modified=False,
+		)
+		_ensure_app_icon()
+		self.assertEqual(frappe.db.get_value("Desktop Icon", name, "logo_url"), logo)
+
+		frappe.db.set_value("Desktop Icon", name, "logo_url", "/files/client-logo.png", update_modified=False)
+		_ensure_app_icon()
+		self.assertEqual(frappe.db.get_value("Desktop Icon", name, "logo_url"), "/files/client-logo.png")
+
+	def test_app_logo_url_is_not_declared(self):
+		"""navbar_settings.get_app_logo() picks the site's navbar logo by how many apps set it."""
+		self.assertFalse(frappe.get_hooks("app_logo_url", app_name=APP))
+
 	def test_the_workspace_has_a_desktop_icon(self):
 		"""Either the workspace's own icon (older installs) or the app tile (a fresh one)."""
 		from ai_snaplead_connector.install import workspace_is_on_the_desk
