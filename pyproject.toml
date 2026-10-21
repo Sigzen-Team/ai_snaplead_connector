@@ -1,7 +1,7 @@
 [project]
 name = "ai_snaplead_connector"
 authors = [
-    { name = "Sigzen Solutions", email = "support@sigzen.com"}
+    { name = "Sigzen Technologies Pvt. Ltd.", email = "support@sigzen.com"}
 ]
 description = "Receive business-card leads from AI SnapLead into ERPNext as standard Leads, Contacts and Addresses."
 requires-python = ">=3.10"

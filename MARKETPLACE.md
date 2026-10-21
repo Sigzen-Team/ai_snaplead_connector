@@ -67,8 +67,8 @@ the repository has to be on a host it can reach (GitHub is what the Marketplace 
 
 ### 2. Confirm the publisher identity
 
-- [ ] `app_publisher` in `hooks.py` and the author in `pyproject.toml` say "Sigzen Solutions";
-      `license.txt` names the same. Confirm that is the legal entity that owns the code.
+- [x] `app_publisher` in `hooks.py`, the author in `pyproject.toml` and `license.txt` say
+      "Sigzen Technologies Pvt. Ltd.", the same legal name as the live privacy and terms pages.
 - [ ] `support@sigzen.com` becomes the public support contact. Confirm somebody reads it.
 
 ### 3. Listing assets
