@@ -11,10 +11,10 @@ and with the card photos attached.
 | | |
 | --- | --- |
 | App name | `ai_snaplead_connector` |
-| Version | 1.1.0 |
+| Version | 1.1.1 |
 | Works with | Frappe 16, ERPNext 16 |
 | Licence | MIT |
-| Publisher | Sigzen Solutions |
+| Publisher | Sigzen Technologies Pvt. Ltd. |
 
 ## Features
 
