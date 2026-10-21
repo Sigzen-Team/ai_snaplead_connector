@@ -32,6 +32,7 @@ integration actually writes -- it is not a general-purpose remote write API.
 
 import hashlib
 import json
+import re
 
 import frappe
 from frappe import _
@@ -160,8 +161,23 @@ def upsert_document(
 	return {"name": doc.name, "doctype": doctype, "operation": operation}
 
 
+#: What a central business id looks like. Central names Business by the naming series
+#: ``ORG-.#####`` (ORG-00103), but the series is editable there, so this accepts any short
+#: identifier-shaped value rather than that one pattern -- and refuses whitespace, quotes,
+#: markup and anything long, which no business id ever contains.
+BUSINESS_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,139}$")
+
+
+def _token_refusal(code, message, field="business_id"):
+	"""Refuse in the connector's own error envelope (see sync.ERROR_STATUS), minting nothing."""
+	from ai_snaplead_connector.api.v1.sync import ERROR_STATUS
+
+	frappe.local.response["http_status_code"] = ERROR_STATUS.get(code, 422)
+	return {"ok": False, "error": {"code": code, "message": message, "field": field, "retryable": False}}
+
+
 @frappe.whitelist(methods=["POST"])
-def issue_connector_token():
+def issue_connector_token(business_id: str | None = None):
 	"""Mint the connector token FOR central, during onboarding, and return it once.
 
 	WHY THIS IS AUTOMATIC
@@ -184,6 +200,15 @@ def issue_connector_token():
 	authenticated as a System Manager on this site, and never again. Calling this REPLACES any
 	existing token, so it is only safe from the onboarding exchange -- which is exactly the
 	moment central is about to store the new value.
+
+	BUSINESS ID (1.1.1)
+
+	Central sends the business it is connecting for, so nobody has to open this site to type
+	it. A blank Business ID is filled in; the same one is a no-op. A DIFFERENT one is refused
+	and no token is minted: this site already belongs to another AI SnapLead business, and
+	moving it is the deliberate System Manager change in Connector Settings (which re-stamps
+	the rows that carry the old id) -- never a side effect of someone else's onboarding.
+	Omitted, the endpoint behaves exactly as in 1.1.0.
 	"""
 	import secrets
 
@@ -192,6 +217,26 @@ def issue_connector_token():
 	frappe.only_for("System Manager")
 
 	settings = frappe.get_single(SETTINGS)
+
+	if business_id is not None:
+		claimed = business_id.strip() if isinstance(business_id, str) else ""
+		if not BUSINESS_ID_PATTERN.match(claimed):
+			return _token_refusal(
+				"VALIDATION_FAILED", _("business_id is not a valid AI SnapLead business ID.")
+			)
+
+		current = (settings.business_id or "").strip()
+		if current and current != claimed:
+			return _token_refusal(
+				"BUSINESS_MISMATCH",
+				_(
+					"This ERPNext is already linked to another AI SnapLead business ({0}), not {1}."
+					" An ERPNext System Manager must change Business ID in Connector Settings"
+					" before it can be connected to this business."
+				).format(current, claimed),
+			)
+		settings.business_id = claimed
+
 	token = secrets.token_urlsafe(32)
 	settings.token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 	settings.flags.ignore_permissions = True
