@@ -16,6 +16,46 @@ and with the card photos attached.
 | Licence | MIT |
 | Publisher | Sigzen Technologies Pvt. Ltd. |
 
+## What is AI SnapLead, and why a connector?
+
+**AI SnapLead** ([aisnaplead.com](https://aisnaplead.com)) is a lead-capture service run by
+Sigzen Technologies. It has two parts:
+
+- **The mobile app** (Android and iOS). Your sales team photographs a business card, and AI
+  reads the name, company, job title, phones, emails, website and address from it. The lead
+  is tagged with the expo, event or campaign where the card was collected.
+- **The AI SnapLead website** ([aisnaplead.com](https://aisnaplead.com)). The business owner
+  manages the team, the plan, the lead sources and the connection to ERPNext. Every scanned
+  lead is kept here too.
+
+AI SnapLead is a hosted service. It is **not** installed on your ERPNext site, and it works
+on its own: a team can scan and manage leads in AI SnapLead without any ERPNext at all.
+
+**This app is the bridge to your ERPNext.** Most businesses don't want their leads stuck in
+one more tool. They want them where sales already works: in the ERPNext Lead list, next to
+their quotations, customers and follow-ups. The connector makes that happen:
+
+```
+ Sales team        AI SnapLead (hosted)           Your ERPNext + this connector
+┌──────────┐      ┌──────────────────────┐      ┌──────────────────────────────┐
+│ scans a  │ ───▶ │ AI reads the card,   │ ───▶ │ Lead + Contact + Address     │
+│ card     │      │ stores the lead      │      │ + card photos, in your lists │
+└──────────┘      └──────────────────────┘      └──────────────────────────────┘
+```
+
+Without the connector, your ERPNext has no safe way to accept these leads. With it, every
+scanned card becomes a normal ERPNext Lead within minutes, with nothing typed by hand.
+
+| You want to… | You need |
+| --- | --- |
+| Scan cards and keep the leads in AI SnapLead only | AI SnapLead (app + account). No connector. |
+| Get those leads into your ERPNext automatically | AI SnapLead **and** this connector on your ERPNext site |
+| Use this connector without AI SnapLead | Not possible. It only accepts leads sent by AI SnapLead. |
+
+To get started with AI SnapLead, sign up at [aisnaplead.com](https://aisnaplead.com) and
+install the AI SnapLead app on your team's phones. Then install this connector and follow
+[Setup](#setup) below.
+
 ## Features
 
 - **Standard records, nothing to learn.** Leads land in the stock ERPNext Lead list with
