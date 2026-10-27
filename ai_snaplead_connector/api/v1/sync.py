@@ -44,6 +44,7 @@ import hmac
 import json
 import os
 import time
+from contextlib import contextmanager
 
 import frappe
 from frappe import _
@@ -759,13 +760,61 @@ def _upsert(graph):
 		# ONE rollback for the whole graph. Nothing survives a failure at any point: no Lead
 		# without its Address, no Contact without its Lead, no link row pointing at a Lead
 		# that was rolled out from under it.
-		frappe.db.rollback(save_point=SAVEPOINT)
-		_discard_files(created_files)
+		if _rollback_to_savepoint():
+			_discard_files(created_files)
 		_forget(touched)
+		# Bare raise: the ORIGINAL error (a duplicate, a bad link...) is what the caller must
+		# see, never the savepoint's own failure.
 		raise
 
-	frappe.db.release_savepoint(SAVEPOINT)
+	_release_savepoint()
 	return response
+
+
+def _rollback_to_savepoint():
+	"""Undo this push back to SAVEPOINT. False when the savepoint was already gone.
+
+	A client hook that commits the transaction while the Lead is being inserted -- a Server
+	Script, a custom naming rule, another app's doc_events -- ends the transaction and every
+	savepoint in it. `rollback to savepoint` then fails with MariaDB 1305, and that error used
+	to replace the real one: a duplicate email reached central as "SAVEPOINT
+	vc_upsert_lead_graph does not exist" (seen on a Frappe 15 client).
+
+	What the client committed cannot be undone from here. What came after it can, so the
+	transaction is rolled back in full -- otherwise the Connector Log write in _fail would
+	commit the rest of a half-written graph along with it. The files stay on disk: some of
+	their File rows may be among what was committed.
+	"""
+	try:
+		frappe.db.rollback(save_point=SAVEPOINT)
+		return True
+	except Exception as exc:
+		if not _is_missing_savepoint(exc):
+			raise
+	frappe.db.rollback()
+	return False
+
+
+def _release_savepoint():
+	"""Release SAVEPOINT; a savepoint a client hook's commit already ended is not a failure.
+
+	The whole graph was written. Refusing it here reported a lead that IS in ERPNext as
+	failed, and central re-sent it for ever.
+	"""
+	try:
+		frappe.db.release_savepoint(SAVEPOINT)
+	except Exception as exc:
+		if not _is_missing_savepoint(exc):
+			raise
+
+
+def _is_missing_savepoint(exc):
+	"""MariaDB 1305, or the same refusal as Postgres / SQLite word it."""
+	args = getattr(exc, "args", None) or ()
+	if args and args[0] == 1305:
+		return True
+	text = str(exc).lower()
+	return "savepoint" in text and ("does not exist" in text or "no such savepoint" in text)
 
 
 def _write_graph(graph, link_row, payload_hash, created_files, touched):
@@ -1895,14 +1944,50 @@ def _insert_doc(doc):
 	VALIDATION_FAILED / MANDATORY_MISSING before anything is written.
 	"""
 	doc.flags.ignore_mandatory = True
-	doc.insert(ignore_permissions=True, ignore_mandatory=True)
+	with _duplicate_contacts_allowed(doc):
+		doc.insert(ignore_permissions=True, ignore_mandatory=True)
 	return doc
 
 
 def _save_doc(doc):
 	doc.flags.ignore_mandatory = True
-	doc.save(ignore_permissions=True)
+	with _duplicate_contacts_allowed(doc):
+		doc.save(ignore_permissions=True)
 	return doc
+
+
+# A pushed Lead is never refused because another Lead already holds its email or phone: a
+# scanned card must always land (owner's decision, 2026-10-27). The same person met at two
+# expos is two Leads, and a refusal here lost a card the app had already reported as sent.
+# Re-delivery of the SAME record is still idempotent -- that is vc_uuid and the link row,
+# not these guards.
+DUPLICATE_GUARDS = ("check_email_id_is_unique", "validate_duplicate_lead_contacts")
+
+
+def _skip_duplicate_guard(*args, **kwargs):
+	return None
+
+
+@contextmanager
+def _duplicate_contacts_allowed(doc):
+	"""Switch the duplicate guards off for this one save of this one Lead.
+
+	ERPNext's Lead.check_email_id_is_unique has no flag, only the site-wide CRM Settings
+	switch, and this app's own guard lives on a class extension that Frappe 15 never loads.
+	An instance attribute shadows the method on whichever controller the site resolves, so
+	this works on both -- and it is removed again, so a later Desk save of the same document
+	object is checked as usual.
+	"""
+	if doc.doctype != "Lead":
+		yield
+		return
+	for name in DUPLICATE_GUARDS:
+		setattr(doc, name, _skip_duplicate_guard)
+	try:
+		yield
+	finally:
+		for name in DUPLICATE_GUARDS:
+			doc.__dict__.pop(name, None)
 
 
 def _linked_document(doctype, lead_name):

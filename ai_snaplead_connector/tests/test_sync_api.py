@@ -1662,7 +1662,8 @@ class TestASecondaryContactIsNotAWayInForADuplicate(ConnectorAPITestCase):
 	and two Contacts.
 	"""
 
-	def test_a_new_uuid_reusing_a_secondary_email_is_refused(self):
+	def test_a_new_uuid_reusing_a_secondary_email_lands(self):
+		"""Pushes land duplicates on purpose (owner's decision 2026-10-27): a card is never lost."""
 		primary = uniq_email("gamma-primary")
 		secondary = uniq_email("gamma-secondary")
 
@@ -1671,25 +1672,23 @@ class TestASecondaryContactIsNotAWayInForADuplicate(ConnectorAPITestCase):
 		contact = frappe.get_doc("Contact", first["contact"])
 		self.assertEqual(sorted(row.email_id for row in contact.email_ids), sorted([primary, secondary]))
 
-		before = _counts()
 		# Same person, same card, new central record, addresses the other way round.
-		response = sync.upsert_lead_graph(payload(lead={"first_name": "Impostor", "emails": [secondary]}))
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Again", "emails": [secondary]}))
 
-		self.assertFailed(response, "VALIDATION_FAILED")
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertNotEqual(response["lead"], first["lead"])
 
-	def test_a_new_uuid_reusing_a_secondary_phone_is_refused(self):
+	def test_a_new_uuid_reusing_a_secondary_phone_lands(self):
 		primary = uniq_phone()
 		secondary = uniq_phone()
 
 		first = sync.upsert_lead_graph(payload(lead={"first_name": "Gamma", "phones": [primary, secondary]}))
 		self.assertTrue(first["ok"], first)
 
-		before = _counts()
-		response = sync.upsert_lead_graph(payload(lead={"first_name": "Impostor", "phones": [secondary]}))
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Again", "phones": [secondary]}))
 
-		self.assertFailed(response, "VALIDATION_FAILED")
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertNotEqual(response["lead"], first["lead"])
 
 	def test_an_unrelated_contact_still_lands(self):
 		"""The guard must refuse a duplicate, not every second Lead."""
@@ -2443,10 +2442,8 @@ class TestSharedContactsDoNotFreezeTheExistingLeadBook(ConnectorAPITestCase):
 
 		self.assertIn("At least one contact detail", str(caught.exception))
 
-	def test_a_connector_push_reusing_the_number_is_still_refused(self):
-		"""The guard must still do its job on the path it was written for."""
-		before = _counts()
-
+	def test_a_connector_push_reusing_the_number_lands(self):
+		"""Pushes skip the guard on purpose (owner's decision 2026-10-27): a card is never lost."""
 		response = sync.upsert_lead_graph(
 			payload(
 				lead={
@@ -2459,8 +2456,7 @@ class TestSharedContactsDoNotFreezeTheExistingLeadBook(ConnectorAPITestCase):
 			)
 		)
 
-		self.assertFailed(response, "VALIDATION_FAILED")
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
 
 
 class TestAPushIsNotLostToClientSideSetup(ConnectorAPITestCase):
@@ -2641,3 +2637,115 @@ class TestANewLeadReachesARealPerson(ConnectorAPITestCase):
 		response = sync.upsert_lead_graph(**payload())
 		self.assertTrue(response["ok"], response)
 		self.assertEqual(frappe.db.get_value("Lead", response["lead"], "lead_owner"), frappe.session.user)
+
+
+class TestAPushedDuplicateAlwaysLands(ConnectorAPITestCase):
+	"""ERPNext's own "Email Address must be unique" used to refuse a second card for the same
+	person -- seen on a client as LEAD/26-27/19 -- and the card existed nowhere."""
+
+	def test_the_same_primary_email_on_a_new_record_lands(self):
+		email = uniq_email("same-person")
+		first = sync.upsert_lead_graph(payload(lead={"first_name": "Met", "emails": [email]}))
+		self.assertTrue(first["ok"], first)
+
+		second = sync.upsert_lead_graph(payload(lead={"first_name": "Met Again", "emails": [email]}))
+
+		self.assertTrue(second["ok"], second)
+		self.assertNotEqual(second["lead"], first["lead"])
+		self.assertEqual(frappe.db.count("Lead", {"email_id": email}), 2)
+
+	def test_both_leads_stay_editable_on_the_desk(self):
+		email = uniq_email("editable")
+		first = sync.upsert_lead_graph(payload(lead={"first_name": "Desk", "emails": [email]}))
+		second = sync.upsert_lead_graph(payload(lead={"first_name": "Desk Two", "emails": [email]}))
+		self.assertTrue(first["ok"] and second["ok"], (first, second))
+
+		for name in (first["lead"], second["lead"]):
+			lead = frappe.get_doc("Lead", name)
+			lead.company_name = "Edited On Desk"
+			lead.save()
+
+	def test_a_desk_lead_reusing_the_email_is_still_refused(self):
+		"""Only pushes skip the guards; a person typing a duplicate on the Desk is still told."""
+		email = uniq_email("desk-dup")
+		first = sync.upsert_lead_graph(payload(lead={"first_name": "Pushed", "emails": [email]}))
+		self.assertTrue(first["ok"], first)
+
+		lead = frappe.new_doc("Lead")
+		lead.first_name = "Typed"
+		lead.email_id = email
+		with self.assertRaises(frappe.ValidationError):
+			lead.insert()
+		frappe.clear_last_message()
+
+	def test_the_guards_are_put_back_after_the_push(self):
+		lead = frappe.new_doc("Lead")
+		with sync._duplicate_contacts_allowed(lead):
+			self.assertIs(lead.check_email_id_is_unique, sync._skip_duplicate_guard)
+		for name in sync.DUPLICATE_GUARDS:
+			self.assertNotIn(name, lead.__dict__)
+
+
+class TestAClientCommitMidPush(ConnectorAPITestCase):
+	"""A client hook that commits while the Lead is inserted ends the push's savepoint. Seen on
+	a Frappe 15 client as "(1305, 'SAVEPOINT vc_upsert_lead_graph does not exist')".
+
+	The hook is simulated by releasing the savepoint: that ends it exactly as a commit would,
+	without making this test's rows permanent.
+	"""
+
+	def _savepoint_ends_on_lead_insert(self, then_fail=False):
+		real_insert = sync._insert_doc
+
+		def insert(doc):
+			if doc.doctype == "Lead":
+				frappe.db.release_savepoint(sync.SAVEPOINT)
+				if then_fail:
+					raise frappe.ValidationError("the real reason")
+			return real_insert(doc)
+
+		sync._insert_doc = insert
+		self.addCleanup(setattr, sync, "_insert_doc", real_insert)
+
+	def test_a_lead_that_was_written_is_reported_as_written(self):
+		self._savepoint_ends_on_lead_insert()
+
+		response = sync.upsert_lead_graph(payload())
+
+		self.assertTrue(response["ok"], response)
+		self.assertTrue(frappe.db.exists("Lead", response["lead"]))
+
+	def test_a_failure_reports_the_real_reason_not_the_savepoint(self):
+		self._savepoint_ends_on_lead_insert(then_fail=True)
+		# The full rollback after a lost savepoint would also take this test class's own rows:
+		# point it at a savepoint of the test's instead.
+		frappe.db.savepoint("vc_test_outer")
+		real_rollback = frappe.db.rollback
+		full_rollbacks = []
+
+		def rollback(*, save_point=None):
+			if save_point:
+				return real_rollback(save_point=save_point)
+			full_rollbacks.append(1)
+			return real_rollback(save_point="vc_test_outer")
+
+		frappe.db.rollback = rollback
+		self.addCleanup(setattr, frappe.db, "rollback", real_rollback)
+		before = _counts()
+
+		response = sync.upsert_lead_graph(payload())
+
+		self.assertFailed(response, "VALIDATION_FAILED")
+		self.assertIn("the real reason", response["error"]["message"])
+		self.assertNotIn("SAVEPOINT", response["error"]["message"].upper())
+		self.assertEqual(full_rollbacks, [1])
+		frappe.db.rollback = real_rollback
+		counts = _counts()
+		counts.pop("Connector Log", None)
+		before.pop("Connector Log", None)
+		self.assertEqual(counts, before)
+
+	def test_the_savepoint_error_is_recognised_on_every_database(self):
+		self.assertTrue(sync._is_missing_savepoint(Exception(1305, "SAVEPOINT vc_upsert_lead_graph does not exist")))
+		self.assertTrue(sync._is_missing_savepoint(Exception("no such savepoint: vc_upsert_lead_graph")))
+		self.assertFalse(sync._is_missing_savepoint(Exception(1213, "Deadlock found")))
