@@ -226,17 +226,24 @@ class ConnectorAPITestCase(LeavesNoContactsBehind, IntegrationTestCase):
 
 
 class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
-	def test_a_failed_address_leaves_no_lead_behind(self):
-		"""THE test. A real Address failure -- a country that is not a Country -- and the
-		Lead, the Contact ERPNext auto-creates with it and the link row must all be gone."""
+	def test_a_failed_address_keeps_the_lead(self):
+		"""THE test, reversed on 2026-10-27 (owner's decision): an Address the client refuses --
+		a country that is not a Country -- no longer costs the lead. The Lead and Contact land,
+		the Address is rolled back on its own, and the caller is told."""
 		before = _counts()
 
 		response = sync.upsert_lead_graph(payload(address={"country": "Republic of Nowhere"}))
 
-		self.assertFailed(response, "VALIDATION_FAILED")
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertIsNone(response["address"])
+		self.assertEqual(response["skipped"], ["address"])
+		self.assertTrue(any("Address was not saved" in w and "Country" in w for w in response["warnings"]), response)
+		self.assertTrue(frappe.db.exists("Lead", response["lead"]))
+		self.assertEqual(_counts()["Address"], before["Address"])
+		# Not "done": the next identical push must try the address again, not answer "unchanged".
+		self.assertEqual(frappe.db.get_value("Connector Lead Link", response["link"], "payload_hash"), "")
 
-	def test_a_failed_address_insert_leaves_no_lead_behind(self):
+	def test_a_failed_address_insert_keeps_the_lead(self):
 		"""The same proof with the failure forced at the insert itself, so it holds even for
 		an Address that fails for a reason validation cannot foresee (a database error, a
 		hook in another app). The Lead and Contact inserts really run before it."""
@@ -260,12 +267,12 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 
 		sync._insert_doc = real_insert
 
-		# The Lead really was written before the Address blew up ...
+		# The Lead really was written before the Address blew up ... and it stays.
 		self.assertIn("Lead", inserted)
-		# ... and it is not there any more.
-		self.assertFailed(response, "INTERNAL")
-		self.assertTrue(response["error"]["retryable"])
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["address"])
+		self.assertTrue(frappe.db.exists("Lead", response["lead"]))
+		self.assertEqual(_counts()["Address"], before["Address"])
 
 	def test_a_rolled_back_push_never_deletes_another_records_attachment(self):
 		"""A savepoint rolls back the database, not the disk, so the endpoint removes the
@@ -310,7 +317,8 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 			)
 		)
 
-		self.assertFailed(response, "VALIDATION_FAILED")
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["attachments"])
 		self.assertTrue(os.path.exists(path), "the rollback deleted another record's bytes")
 		self.assertEqual(frappe.db.get_value("File", card.name, "file_url"), card.file_url)
 
@@ -352,7 +360,8 @@ class TestUpsertLeadGraphAtomicity(ConnectorAPITestCase):
 		)
 		sync._attach_files = real_attach
 
-		self.assertFailed(response, "VALIDATION_FAILED")
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["attachments"])
 		self.assertTrue(written, "no file was written; the test would prove nothing")
 		for name, path in written.items():
 			self.assertFalse(os.path.exists(path), f"{name} left orphan bytes at {path}")
@@ -480,16 +489,14 @@ class TestUpsertLeadGraphSchema(ConnectorAPITestCase):
 		self.assertEqual(error["field"], "lead.first_name")
 		self.assertNothingWritten(before)
 
-	def test_address_without_a_street_is_mandatory_missing(self):
-		before = _counts()
-
+	def test_address_without_a_street_lands_with_city_and_pincode(self):
 		response = sync.upsert_lead_graph(
 			payload(address={"address_line1": "", "city": "Ahmedabad", "pincode": "380015"})
 		)
 
-		error = self.assertFailed(response, "MANDATORY_MISSING", status=422)
-		self.assertEqual(error["field"], "address.address_line1")
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["defaults_applied"]["address.address_line1"], "Ahmedabad, 380015")
+		self.assertEqual(frappe.db.get_value("Address", response["address"], "address_line1"), "Ahmedabad, 380015")
 
 	def test_payload_may_arrive_as_a_json_string(self):
 		response = sync.upsert_lead_graph(json.dumps(payload()))
@@ -629,10 +636,9 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 				)
 			)
 
-	def test_a_corrupt_attachment_is_a_payload_error_not_a_retry(self):
+	def test_a_corrupt_attachment_is_skipped_and_the_lead_lands(self):
 		"""Bytes that are not the image the file name claims fail inside frappe's image
-		handling. That is this payload's problem forever, so it must not come back as a
-		retryable 500 -- and it must take the whole graph down with it."""
+		handling. Since 2026-10-27 that costs the attachment, not the lead."""
 		import base64
 
 		before = _counts()
@@ -648,10 +654,10 @@ class TestUpsertLeadGraphWrites(ConnectorAPITestCase):
 			)
 		)
 
-		error = self.assertFailed(response, "VALIDATION_FAILED", status=422)
-		self.assertEqual(error["field"], "attachments[0]")
-		self.assertFalse(error["retryable"])
-		self.assertNothingWritten(before)
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["attachments"])
+		self.assertEqual(response["attachments"], [])
+		self.assertEqual(_counts()["Lead"], before["Lead"] + 1)
 
 
 class TestUpsertLeadGraphIdempotency(ConnectorAPITestCase):
@@ -1558,19 +1564,18 @@ class TestAMissingAddressTemplateIsASetupGap(ConnectorAPITestCase):
 			frappe.db.delete("Address Template", {"name": name})
 		frappe.clear_cache()
 
-	def test_an_address_without_a_template_is_setup_required_and_retryable(self):
+	def test_an_address_without_a_template_lands_the_lead_without_it(self):
 		self._remove_templates()
 		self.addCleanup(_ensure_address_template)
 		before = _counts()
 
 		response = sync.upsert_lead_graph(payload())
 
-		error = self.assertFailed(response, "SETUP_REQUIRED", status=409)
-		self.assertTrue(error["retryable"], error)
-		self.assertIn("Address Template", error["message"])
-		self.assertEqual(error["field"], "address")
-		# The whole graph is rolled back, as ever -- but the caller is told to keep the record.
-		self.assertNothingWritten(before)
+		# The lead lands; the address waits for the template, and the caller is told why.
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["address"])
+		self.assertTrue(any("Address Template" in w for w in response["warnings"]), response)
+		self.assertEqual(_counts()["Address"], before["Address"])
 
 	def test_ping_reports_the_same_gap_before_anything_is_pushed(self):
 		self._remove_templates()
@@ -2701,7 +2706,8 @@ class TestAClientCommitMidPush(ConnectorAPITestCase):
 			if doc.doctype == "Lead":
 				frappe.db.release_savepoint(sync.SAVEPOINT)
 				if then_fail:
-					raise frappe.ValidationError("the real reason")
+					# A refusal the Lead fallbacks never bypass (a permission verdict).
+					raise frappe.PermissionError("the real reason")
 			return real_insert(doc)
 
 		sync._insert_doc = insert
@@ -2735,7 +2741,7 @@ class TestAClientCommitMidPush(ConnectorAPITestCase):
 
 		response = sync.upsert_lead_graph(payload())
 
-		self.assertFailed(response, "VALIDATION_FAILED")
+		self.assertFailed(response, "REMOTE_PERMISSION")
 		self.assertIn("the real reason", response["error"]["message"])
 		self.assertNotIn("SAVEPOINT", response["error"]["message"].upper())
 		self.assertEqual(full_rollbacks, [1])
@@ -2749,3 +2755,103 @@ class TestAClientCommitMidPush(ConnectorAPITestCase):
 		self.assertTrue(sync._is_missing_savepoint(Exception(1305, "SAVEPOINT vc_upsert_lead_graph does not exist")))
 		self.assertTrue(sync._is_missing_savepoint(Exception("no such savepoint: vc_upsert_lead_graph")))
 		self.assertFalse(sync._is_missing_savepoint(Exception(1213, "Deadlock found")))
+
+
+class TestNoClientCheckLosesTheLead(ConnectorAPITestCase):
+	"""2026-10-27: 7 of 214 cards were lost on a client to an address the client refused.
+	Whatever the client's apps say, the Lead lands and the caller is told what was skipped."""
+
+	def test_an_indian_address_without_a_state_keeps_the_lead(self):
+		"""[MANDATORY_MISSING] address.state could not be determined ... india_compliance"""
+		real = sync.india_compliance_installed
+		sync.india_compliance_installed = lambda: True
+		self.addCleanup(setattr, sync, "india_compliance_installed", real)
+		before = _counts()
+
+		response = sync.upsert_lead_graph(
+			payload(
+				address={"address_line1": "Plot 7", "city": "Nowhere Town", "pincode": "", "state": "", "country": "India"}
+			)
+		)
+
+		self.assertTrue(response["ok"], response)
+		self.assertEqual(response["skipped"], ["address"])
+		self.assertTrue(any("state" in w for w in response["warnings"]), response)
+		self.assertEqual(_counts()["Lead"], before["Lead"] + 1)
+
+	def test_a_country_code_is_read_as_the_country(self):
+		"""[VALIDATION_FAILED] Could not find Country: US"""
+		for code, name in (("US", "United States"), ("USA", "United States"), ("uk", "United Kingdom")):
+			response = sync.upsert_lead_graph(payload(address={"country": code, "state": "CA", "pincode": "94105"}))
+
+			self.assertTrue(response["ok"], response)
+			self.assertEqual(response["skipped"], [], response)
+			self.assertEqual(frappe.db.get_value("Address", response["address"], "country"), name)
+
+	def test_a_lead_the_client_refuses_is_saved_without_its_checks(self):
+		real_insert = sync._insert_doc
+
+		def refusing(doc):
+			if doc.doctype == "Lead" and not doc.flags.ignore_validate:
+				raise frappe.ValidationError("a client app says no")
+			return real_insert(doc)
+
+		sync._insert_doc = refusing
+		self.addCleanup(setattr, sync, "_insert_doc", real_insert)
+
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Refused", "last_name": "Once"}))
+
+		self.assertTrue(response["ok"], response)
+		self.assertTrue(
+			any("without the client's checks" in w and "a client app says no" in w for w in response["warnings"]),
+			response,
+		)
+		self.assertEqual(frappe.db.get_value("Lead", response["lead"], "lead_name"), "Refused Once")
+
+	def test_a_lead_refused_every_way_is_written_directly(self):
+		real_insert = sync._insert_doc
+
+		def always_refusing(doc):
+			if doc.doctype == "Lead":
+				raise frappe.ValidationError("a hook that runs on every insert")
+			return real_insert(doc)
+
+		sync._insert_doc = always_refusing
+		self.addCleanup(setattr, sync, "_insert_doc", real_insert)
+		before = _counts()
+
+		response = sync.upsert_lead_graph(payload(lead={"first_name": "Stubborn", "last_name": "Client"}))
+
+		self.assertTrue(response["ok"], response)
+		self.assertTrue(any("written directly to the database" in w for w in response["warnings"]), response)
+		self.assertEqual(frappe.get_doc("Lead", response["lead"]).lead_name, "Stubborn Client")
+		self.assertEqual(_counts()["Lead"], before["Lead"] + 1)
+
+	def test_this_apps_own_refusals_are_not_bypassed(self):
+		"""Tenancy and permission verdicts still refuse: they are not the client's opinion of the data."""
+		real_insert = sync._insert_doc
+
+		def forbidden(doc):
+			if doc.doctype == "Lead":
+				raise frappe.PermissionError("not this business")
+			return real_insert(doc)
+
+		sync._insert_doc = forbidden
+		self.addCleanup(setattr, sync, "_insert_doc", real_insert)
+		before = _counts()
+
+		response = sync.upsert_lead_graph(payload())
+
+		self.assertFailed(response, "REMOTE_PERMISSION")
+		self.assertNothingWritten(before)
+
+	def test_a_skipped_part_is_tried_again_by_the_next_identical_push(self):
+		body = payload(address={"country": "Republic of Nowhere"})
+		first = sync.upsert_lead_graph(body)
+		self.assertEqual(first["skipped"], ["address"], first)
+
+		again = sync.upsert_lead_graph(dict(body, request_id=frappe.generate_hash(length=16)))
+
+		self.assertTrue(again["ok"], again)
+		self.assertFalse(again.get("unchanged"), again)
+		self.assertEqual(again["lead"], first["lead"])
