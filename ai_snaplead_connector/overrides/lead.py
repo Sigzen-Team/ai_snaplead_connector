@@ -93,6 +93,11 @@ class CustomLead(Lead):
 		"""
 		if site_accepts_multiple_businesses() and get_business_id(self):
 			return
+		# Pushes land duplicates on purpose (api/v1/sync.py, DUPLICATE_GUARDS). Stock ERPNext
+		# re-checks on every save, so both Leads would become unsaveable on the Desk; a save
+		# that does not change the address is not introducing a duplicate.
+		if not self.is_new() and not self.has_value_changed("email_id"):
+			return
 		super().check_email_id_is_unique()
 
 	def validate_contact_child_tables(self):
