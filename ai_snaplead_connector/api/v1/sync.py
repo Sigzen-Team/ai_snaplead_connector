@@ -825,10 +825,18 @@ def _write_graph(graph, link_row, payload_hash, created_files, touched):
 
 	deferred = _route_dropped_lead_fields(graph)
 	lead, outcome = _upsert_lead(graph, link_row, defaults, warnings, touched)
-	contact = _upsert_contact(lead, graph, touched)
-	address = _upsert_address(lead, graph, defaults, warnings, touched)
-	address = _settle_deferred_fields(lead, deferred, address, warnings) or address
-	attachments = _attach_files(lead, graph, created_files, touched)
+
+	# The Lead is in. Nothing after this point is allowed to take it back out: a Contact, an
+	# Address or a card image the client refuses is skipped and reported, and the Lead stays
+	# (owner's decision, 2026-10-27 -- seen on a client as 7 of 214 cards lost to
+	# "address.state could not be determined" and "Could not find Country: US").
+	parts = _OptionalParts(defaults, warnings, created_files, touched)
+	contact = parts.run("contact", lambda: _upsert_contact(lead, graph, touched))
+	address = parts.run("address", lambda: _upsert_address(lead, graph, defaults, warnings, touched))
+	address = parts.run(
+		"address", lambda: _settle_deferred_fields(lead, deferred, address, warnings) or address, fallback=address
+	)
+	attachments = parts.run("attachments", lambda: _attach_files(lead, graph, created_files, touched), fallback=[])
 
 	response = {
 		"ok": True,
@@ -842,14 +850,102 @@ def _write_graph(graph, link_row, payload_hash, created_files, touched):
 		"attachments": attachments,
 		"defaults_applied": defaults,
 		"warnings": warnings,
+		"skipped": parts.skipped,
 		"payload_hash": payload_hash,
 		"replayed": False,
 		"unchanged": False,
 		"synced_on": str(now_datetime()),
 	}
 
-	response["link"] = _upsert_link(graph, lead, link_row, payload_hash, response, touched)
+	# A graph with a skipped part is not "done": storing its hash would answer the next
+	# identical push "unchanged" and the part would never be written. No hash, so it is retried.
+	stored_hash = "" if parts.skipped else payload_hash
+	response["link"] = _upsert_link(graph, lead, link_row, stored_hash, response, touched)
 	return response
+
+
+#: Failures that are worth a retry of the WHOLE push rather than a lead without its part:
+#: they say nothing about the data, and central retries them on its own.
+TRANSIENT_ERRORS = tuple(
+	exc
+	for exc in (
+		getattr(frappe, "QueryDeadlockError", None),
+		getattr(frappe, "QueryTimeoutError", None),
+		getattr(frappe.exceptions, "TimestampMismatchError", None),
+	)
+	if exc is not None
+)
+
+
+class _OptionalParts:
+	"""Write the parts of a graph that the Lead can live without, each in its own savepoint.
+
+	A part that fails is rolled back on its own -- the Lead and every earlier part stay -- and
+	named in the response (`skipped`, plus a warning with the client's reason).
+	"""
+
+	def __init__(self, defaults, warnings, created_files, touched):
+		self.defaults = defaults
+		self.warnings = warnings
+		self.created_files = created_files
+		self.touched = touched
+		self.skipped = []
+
+	def run(self, name, write, fallback=None):
+		savepoint = f"vc_part_{name}"
+		defaults = dict(self.defaults)
+		warning_count = len(self.warnings)
+		file_count = len(self.created_files)
+		touched_count = len(self.touched)
+		message_count = len(getattr(frappe.local, "message_log", None) or [])
+
+		frappe.db.savepoint(savepoint)
+		try:
+			result = write()
+		except TRANSIENT_ERRORS:
+			raise
+		except Exception as exc:
+			reason = _exception_message(exc)
+			if _rollback_part(savepoint):
+				_discard_files(self.created_files[file_count:])
+			del self.created_files[file_count:]
+			_forget(self.touched[touched_count:])
+			# What the failed part said is not true of what was saved.
+			self.defaults.clear()
+			self.defaults.update(defaults)
+			del self.warnings[warning_count:]
+			if isinstance(getattr(frappe.local, "message_log", None), list):
+				del frappe.local.message_log[message_count:]
+			if name not in self.skipped:
+				self.skipped.append(name)
+			self.warnings.append(
+				"{0} was not saved on this client, the lead was saved without it: {1}".format(
+					name.capitalize(), reason
+				)
+			)
+			return fallback
+
+		_release_part(savepoint)
+		return result
+
+
+def _rollback_part(savepoint):
+	"""Undo one part. False when a client commit already ended its savepoint (nothing to undo)."""
+	try:
+		frappe.db.rollback(save_point=savepoint)
+		return True
+	except Exception as exc:
+		if not _is_missing_savepoint(exc):
+			raise
+		return False
+
+
+def _release_part(savepoint):
+	try:
+		frappe.db.release_savepoint(savepoint)
+	except Exception as exc:
+		if not _is_missing_savepoint(exc):
+			raise
 
 
 # Legacy Lead Custom Fields that the client may already have dropped, and where each value
@@ -1072,9 +1168,9 @@ def _upsert_lead(graph, link_row, defaults, warnings, touched):
 	is_new = lead.is_new()
 	if is_new:
 		_apply_lead_routing(lead, graph, defaults)
-		_insert_doc(lead)
+		_write_lead(lead, graph, warnings, new=True)
 	else:
-		_save_doc(lead)
+		_write_lead(lead, graph, warnings, new=False)
 
 	if is_new:
 		_assign_new_lead(lead, warnings)
@@ -1537,11 +1633,13 @@ def _upsert_address(lead, graph, defaults, warnings, touched):
 
 	line1 = (block.get("address_line1") or "").strip()
 	if not line1:
-		raise ConnectorError(
-			"MANDATORY_MISSING",
-			_("address.address_line1 is required when an address is sent."),
-			field="address.address_line1",
-		)
+		# A card with a city and a pincode but no street is still an address worth keeping;
+		# refusing it cost the lead. Address.address_line1 is mandatory, so it is filled, and
+		# the caller is told.
+		line1 = ", ".join(
+			value for value in ((block.get("city") or "").strip(), cstr(block.get("pincode")).strip()) if value
+		) or DEFAULT_ADDRESS_CITY
+		defaults["address.address_line1"] = line1
 
 	# The stored row is read BEFORE anything is resolved, because "the payload did not send
 	# this field" and "the payload cleared this field" are different instructions and only
@@ -1571,6 +1669,11 @@ def _upsert_address(lead, graph, defaults, warnings, touched):
 	if not country:
 		country = DEFAULT_ADDRESS_COUNTRY
 		defaults["address.country"] = country
+
+	resolved = _resolve_country(country)
+	if resolved != country:
+		warnings.append(f"Address.country {country} was read as {resolved}.")
+		country = resolved
 
 	city = (block.get("city") or "").strip()
 	if not city and held.get("city") and held["city"] != DEFAULT_ADDRESS_CITY:
@@ -1954,6 +2057,100 @@ def _save_doc(doc):
 	with _duplicate_contacts_allowed(doc):
 		doc.save(ignore_permissions=True)
 	return doc
+
+
+LEAD_SAVEPOINT = "vc_lead_write"
+
+
+def _never_bypassed():
+	"""Refusals the Lead fallbacks must NOT get round: this app's own (tenancy, adoption), a
+	permission verdict, and transient failures that a retry of the whole push will cure."""
+	return (ConnectorError, frappe.PermissionError, *TRANSIENT_ERRORS)
+
+
+def _write_lead(lead, graph, warnings, new):
+	"""Save the Lead, whatever the client's own code thinks of it (owner's decision 2026-10-27).
+
+	1. a normal insert/save;
+	2. if the client refuses it -- a validation in ERPNext, india_compliance, a custom app or a
+	   Server Script, or a Link the client has no row for -- again without validation and
+	   without link checks;
+	3. if even that is refused (a hook that runs on insert/update itself), a direct database
+	   write of the row, which no app code runs on.
+
+	Each attempt is in its own savepoint, so a refused attempt leaves nothing behind. The
+	caller is told in `warnings` whenever the client's checks were skipped, with the reason.
+	"""
+	write = _insert_doc if new else _save_doc
+	reasons = []
+	for without_checks in (False, True):
+		if without_checks:
+			lead.flags.ignore_validate = True
+			lead.flags.ignore_links = True
+			_fill_lead_basics(lead, graph)
+		message_count = len(getattr(frappe.local, "message_log", None) or [])
+		frappe.db.savepoint(LEAD_SAVEPOINT)
+		try:
+			write(lead)
+		except _never_bypassed():
+			raise
+		except Exception as exc:
+			reasons.append(_exception_message(exc))
+			_rollback_part(LEAD_SAVEPOINT)
+			if isinstance(getattr(frappe.local, "message_log", None), list):
+				del frappe.local.message_log[message_count:]
+			continue
+		_release_part(LEAD_SAVEPOINT)
+		if reasons:
+			warnings.append(
+				"The client refused this Lead ({0}); it was saved without the client's checks.".format(
+					reasons[0]
+				)
+			)
+		return lead
+
+	_write_lead_row(lead, new)
+	warnings.append(
+		"The client refused this Lead ({0}); it was written directly to the database, without"
+		" running the client's code.".format(reasons[-1])
+	)
+	return lead
+
+
+def _fill_lead_basics(lead, graph):
+	"""What Lead.validate would have set, for a save that skips it."""
+	if not lead.get("lead_name"):
+		parts = (lead.get("first_name"), lead.get("middle_name"), lead.get("last_name"))
+		lead.lead_name = " ".join(p.strip() for p in parts if p and p.strip()) or lead.get(
+			"company_name"
+		) or _default_lead_name(graph)
+	if lead.meta.has_field("title") and not lead.get("title"):
+		lead.title = lead.lead_name
+	if not lead.get("status"):
+		lead.status = "Lead"
+
+
+def _write_lead_row(lead, new):
+	"""The last resort: the Lead's row and child rows, written without any controller or hook."""
+	from frappe.model.naming import set_new_name
+
+	now = now_datetime()
+	lead.modified = now
+	lead.modified_by = frappe.session.user
+	if new:
+		if not lead.name or lead.get("__islocal"):
+			set_new_name(lead)
+		lead.creation = lead.creation or now
+		lead.owner = lead.owner or frappe.session.user
+		lead.set_parent_in_children()
+		lead.db_insert()
+		for child in lead.get_all_children():
+			child.db_insert()
+		lead.set("__islocal", False)
+	else:
+		lead.db_update()
+		lead.update_children()
+	frappe.clear_document_cache("Lead", lead.name)
 
 
 # A pushed Lead is never refused because another Lead already holds its email or phone: a
@@ -2461,6 +2658,47 @@ def ensure_lead_source(source_name):
 	except frappe.DuplicateEntryError:
 		frappe.clear_last_message()
 	return source_name
+
+
+#: Spellings a card or a phone's locale produces that are not a Country name or ISO code.
+COUNTRY_ALIASES = {
+	"usa": "United States",
+	"u.s.a.": "United States",
+	"u.s.": "United States",
+	"united states of america": "United States",
+	"america": "United States",
+	"uk": "United Kingdom",
+	"u.k.": "United Kingdom",
+	"great britain": "United Kingdom",
+	"england": "United Kingdom",
+	"uae": "United Arab Emirates",
+	"u.a.e.": "United Arab Emirates",
+	"bharat": "India",
+}
+
+
+def _resolve_country(value):
+	"""The Country record a payload's country means, or the value unchanged.
+
+	Address.country is a Link to Country, whose names are full English names. A card read on a
+	phone often says "US" or "USA", and that took the whole lead down:
+
+	    [VALIDATION_FAILED] Could not find Country: US
+	"""
+	value = (value or "").strip()
+	if not value or frappe.db.exists("Country", value):
+		return value
+	by_name = frappe.db.get_value("Country", {"name": ["like", value]}, "name")
+	if by_name and by_name.lower() == value.lower():
+		return by_name
+	alias = COUNTRY_ALIASES.get(value.lower())
+	if alias and frappe.db.exists("Country", alias):
+		return alias
+	if len(value) == 2:
+		by_code = frappe.db.get_value("Country", {"code": value.lower()}, "name")
+		if by_code:
+			return by_code
+	return value
 
 
 def _drop_unresolvable_link(doctype, fieldname, value):
