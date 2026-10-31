@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to `ai_snaplead_connector` (released as `sigzen_ai_scan_crm_connector` up to
-1.0.0) are recorded here. The format follows
+All notable changes to `sigzenlead_connector` (released as `ai_snaplead_connector` in 1.1.x and as
+`sigzen_ai_scan_crm_connector` up to 1.0.0) are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -14,6 +14,20 @@ breaking change for every central site in the field and gets its own major relea
 | 1.1.1 | `vc-connector/1` | 16 (refused on < 16) | 16 |
 | 1.1.0 | `vc-connector/1` | 16 (refused on < 16) | 16 |
 | 1.0.0 | `vc-connector/1` | 16 (verified on 16.25.0 and 16.26.3) | 16 (verified on 16.26.2 and 16.27.0) |
+
+---
+
+## [Unreleased]
+
+### Changed
+
+- **Renamed to SigzenLead - Connector.** The product is now SigzenLead. Package
+  `ai_snaplead_connector` -> `sigzenlead_connector`, module "AI SnapLead Connector" -> "SigzenLead
+  Connector" (folder `sigzenlead_connector/sigzenlead_connector/`), app title, sidebar, desk tile
+  and workspace heading -> "SigzenLead - Connector", workspace -> "SigzenLead Connector" (route
+  `/desk/sigzenlead-connector`), assets under `/assets/sigzenlead_connector/`.
+- A site on `ai_snaplead_connector` converts on a plain `bench migrate` (stand-in package
+  `ai_snaplead_connector/`), and every API path under that name keeps answering.
 
 ---
 

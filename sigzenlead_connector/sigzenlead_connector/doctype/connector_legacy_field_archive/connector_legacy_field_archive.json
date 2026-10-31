@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-09-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "reference_name",
+  "lookup_key",
+  "column_break_identity",
+  "migration_status",
+  "migrated_on",
+  "archived_on",
+  "migration_section",
+  "migration_notes",
+  "archive_section",
+  "legacy_values"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Reference DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference Name",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "description": "reference_doctype|reference_name. UNIQUE, so one row per record is enforced by the database rather than by whichever code path happens to run first.",
+   "fieldname": "lookup_key",
+   "fieldtype": "Data",
+   "label": "Lookup Key",
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "migration_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Migration Status",
+   "options": "\nMigrated\nFailed\nOrphaned"
+  },
+  {
+   "fieldname": "migrated_on",
+   "fieldtype": "Datetime",
+   "label": "Migrated On"
+  },
+  {
+   "fieldname": "archived_on",
+   "fieldtype": "Datetime",
+   "in_standard_filter": 1,
+   "label": "Archived On"
+  },
+  {
+   "fieldname": "migration_section",
+   "fieldtype": "Section Break",
+   "label": "What The Migration Did"
+  },
+  {
+   "description": "JSON. Per legacy field, what Patch A wrote and where. Read by the Patch B verification gate.",
+   "fieldname": "migration_notes",
+   "fieldtype": "Long Text",
+   "label": "Migration Notes"
+  },
+  {
+   "fieldname": "archive_section",
+   "fieldtype": "Section Break",
+   "label": "Archived Legacy Values"
+  },
+  {
+   "description": "JSON. Every legacy Custom Field value this record carried, captured before the fields were dropped. This is the undo button: sigzenlead_connector.legacy.restore reads it.",
+   "fieldname": "legacy_values",
+   "fieldtype": "Long Text",
+   "label": "Legacy Values"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-06 12:24:19.000000",
+ "modified_by": "Administrator",
+ "module": "SigzenLead Connector",
+ "name": "Connector Legacy Field Archive",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "reference_name",
+ "track_changes": 0
+}
