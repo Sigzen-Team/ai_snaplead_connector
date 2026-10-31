@@ -16,7 +16,7 @@ venv/
 # Frappe / bench
 *.log
 node_modules/
-ai_snaplead_connector/public/dist/
+sigzenlead_connector/public/dist/
 
 # Editors / OS
 .vscode/

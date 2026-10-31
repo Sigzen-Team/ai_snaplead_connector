@@ -5,7 +5,7 @@
 # carries on under that name. See sigzen_ai_scan_crm_connector/__init__.py.
 
 app_name = "sigzen_ai_scan_crm_connector"
-app_title = "AI SnapLead - Connector (old name, renamed on migrate)"
+app_title = "SigzenLead - Connector (old name, renamed on migrate)"
 app_publisher = "Sigzen Technologies Pvt. Ltd."
 app_description = "Renames a site that installed the connector as sigzen_ai_scan_crm_connector."
 app_email = "support@sigzen.com"
