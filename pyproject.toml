@@ -1,9 +1,9 @@
 [project]
-name = "ai_snaplead_connector"
+name = "sigzenlead_connector"
 authors = [
     { name = "Sigzen Technologies Pvt. Ltd.", email = "support@sigzen.com"}
 ]
-description = "Receive business-card leads from AI SnapLead into ERPNext as standard Leads, Contacts and Addresses."
+description = "Receive business-card leads from SigzenLead into ERPNext as standard Leads, Contacts and Addresses."
 requires-python = ">=3.10"
 readme = "README.md"
 license = { file = "license.txt" }
@@ -30,9 +30,9 @@ Changelog = "http://192.168.1.51/Sigzen-Team/ai_snaplead_connector/-/blob/master
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
-# flit builds the package named after the project (ai_snaplead_connector) and reads __version__
-# from its __init__.py. The stand-in packages vc_connector/ and sigzen_ai_scan_crm_connector/ are
-# not part of the wheel: bench installs apps editable (the whole folder is on sys.path), which is
+# flit builds the package named after the project (sigzenlead_connector) and reads __version__
+# from its __init__.py. The stand-in packages vc_connector/, sigzen_ai_scan_crm_connector/ and
+# ai_snaplead_connector/ are not part of the wheel: bench installs apps editable (the whole folder is on sys.path), which is
 # what lets a site that still lists an old name import its stand-in and be renamed on migrate.
 
 # What bench and Frappe Cloud check before installing: this app is built and tested on
