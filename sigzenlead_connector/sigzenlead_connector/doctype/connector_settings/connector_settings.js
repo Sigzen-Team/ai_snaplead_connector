@@ -50,6 +50,18 @@ frappe.ui.form.on("Connector Settings", {
 		// paste both halves in the right places -- which surfaced as TOKEN_INVALID on the
 		// first push if you got it wrong.
 		frm.add_custom_button(__("Generate Connector Token"), () => {
+			// The token is minted against the SAVED Business ID (mandatory): without one the
+			// server refused with a bare 417 MandatoryError.
+			if (!(frm.doc.business_id || "").trim() || frm.is_dirty()) {
+				frappe.msgprint({
+					title: __("Business ID Required"),
+					indicator: "orange",
+					message: __(
+						"Enter the Business ID this site belongs to and save the form, then generate the connector token."
+					),
+				});
+				return;
+			}
 			frappe.confirm(
 				__(
 					"This replaces any existing token. The central site will stop pushing until you paste the new one into its ERPNext Connector. Continue?"

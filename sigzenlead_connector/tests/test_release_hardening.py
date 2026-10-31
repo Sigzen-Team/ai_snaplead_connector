@@ -120,6 +120,27 @@ class TestIssueTokenBeforeBusinessId(SettingsTestCase):
 		self.assertEqual(stored, hashlib.sha256(result["token"].encode()).hexdigest())
 
 
+class TestGenerateTokenNeedsBusinessId(SettingsTestCase):
+	def test_empty_business_id_is_a_clear_message_not_a_mandatory_error(self):
+		"""The form's button answered a bare 417 "[Connector Settings, Connector Settings]: business_id"."""
+		_configure(business_id="", token_hash="")
+		with patch.object(frappe.db, "commit"):
+			with self.assertRaises(frappe.ValidationError) as caught:
+				connector_settings.generate_connector_token()
+
+		self.assertNotIsInstance(caught.exception, frappe.MandatoryError)
+		self.assertIn("Set the Business ID first", str(caught.exception))
+		# Nothing was minted.
+		self.assertFalse(frappe.db.get_single_value(SETTINGS, "token_hash"))
+
+	def test_token_is_generated_once_business_id_is_set(self):
+		_configure(business_id="ORG-00001", token_hash="")
+		with patch.object(frappe.db, "commit"):
+			result = connector_settings.generate_connector_token()
+		self.assertTrue(result["token"])
+		self.assertEqual(result["business_id"], "ORG-00001")
+
+
 class TestUnloadableSettingsAreRetryable(ConnectorAPITestCase):
 	def test_settings_that_cannot_load_answer_setup_required(self):
 		real = frappe.get_cached_doc

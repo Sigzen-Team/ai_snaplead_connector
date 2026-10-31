@@ -59,6 +59,58 @@ class TestWorkspaceRepair(IntegrationTestCase):
 			install.LEGACY_WORKSPACES[-1],
 		)
 
+	def test_sidebar_entry_named_after_a_renamed_doctype_is_relabelled(self):
+		"""A migrated client's sidebar read "VC Connector Settings" while opening Connector Settings."""
+
+		def entry(label, link_to):
+			row = frappe.get_doc(
+				{
+					"doctype": "Workspace Sidebar Item",
+					"parent": install.SIDEBAR,
+					"parenttype": "Workspace Sidebar",
+					"parentfield": "items",
+					"type": "Link",
+					"link_type": "DocType",
+					"label": label,
+					"link_to": link_to,
+					"idx": 90,
+				}
+			)
+			row.db_insert()
+			self.addCleanup(frappe.db.delete, "Workspace Sidebar Item", {"name": row.name})
+			return row.name
+
+		stale = entry("VC Connector Settings", "Connector Settings")
+		own = entry("Received Leads", "Connector Lead Link")
+
+		self.assertGreaterEqual(install.repair_legacy_doctype_sidebar_labels(), 1)
+		self.assertEqual(frappe.db.get_value("Workspace Sidebar Item", stale, "label"), "Connector Settings")
+		# A label the client chose is not an old DocType name and stays.
+		self.assertEqual(frappe.db.get_value("Workspace Sidebar Item", own, "label"), "Received Leads")
+		# Idempotent: a second run finds nothing.
+		self.assertEqual(install.repair_legacy_doctype_sidebar_labels(), 0)
+
+	def test_tile_on_the_ai_snaplead_logo_moves_to_the_shipped_one(self):
+		"""The package rename rewrote only the /assets/<package>/ prefix: the tile pointed at
+		/assets/sigzenlead_connector/images/ai-snaplead-connector-logo.svg, which is not shipped."""
+		icon = frappe.db.get_value("Desktop Icon", {"icon_type": "App", "app": install.APP}, ["name", "logo_url"], as_dict=True)
+		if not icon:
+			self.skipTest("no app tile on this site")
+		self.addCleanup(
+			frappe.db.set_value, "Desktop Icon", icon.name, "logo_url", icon.logo_url, update_modified=False
+		)
+		stale = f"/assets/{install.APP}/images/ai-snaplead-connector-logo.svg"
+		frappe.db.set_value("Desktop Icon", icon.name, "logo_url", stale, update_modified=False)
+
+		install._ensure_app_icon()
+
+		logo = frappe.get_hooks("add_to_apps_screen", app_name=install.APP)[0]["logo"]
+		self.assertEqual(frappe.db.get_value("Desktop Icon", icon.name, "logo_url"), logo)
+		import os
+
+		shipped = os.path.join(frappe.get_app_path(install.APP, "public"), logo.split(f"/assets/{install.APP}/", 1)[1])
+		self.assertTrue(os.path.exists(shipped), shipped)
+
 	def test_header_sync_rewrites_the_legacy_name(self):
 		if not frappe.db.exists("Workspace", install.WORKSPACE):
 			self.skipTest("connector workspace not present on this site")

@@ -135,8 +135,20 @@ def generate_connector_token():
 
 	frappe.only_for("System Manager")
 
-	token = secrets.token_urlsafe(32)
 	settings = frappe.get_single("Connector Settings")
+	if not (settings.business_id or "").strip():
+		# Business ID is mandatory, so the save below would fail with a bare MandatoryError
+		# ("[Connector Settings, Connector Settings]: business_id"). Say what to do instead.
+		frappe.throw(
+			_(
+				"Set the Business ID first: enter the business ID this site belongs to (the"
+				" business on the central site, for example ORG-00001), save, then generate"
+				" the connector token."
+			),
+			title=_("Business ID Required"),
+		)
+
+	token = secrets.token_urlsafe(32)
 	settings.token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 	settings.flags.ignore_permissions = True
 	settings.save(ignore_permissions=True)

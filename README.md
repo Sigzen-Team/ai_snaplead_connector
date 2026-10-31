@@ -18,13 +18,13 @@ and with the card photos attached.
 
 ## What is SigzenLead, and why a connector?
 
-**SigzenLead** ([aisnaplead.com](https://aisnaplead.com)) is a lead-capture service run by
+**SigzenLead** ([sigzenlead.com](https://sigzenlead.com)) is a lead-capture service run by
 Sigzen Technologies. It has two parts:
 
 - **The mobile app** (Android and iOS). Your sales team photographs a business card, and AI
   reads the name, company, job title, phones, emails, website and address from it. The lead
   is tagged with the expo, event or campaign where the card was collected.
-- **The SigzenLead website** ([aisnaplead.com](https://aisnaplead.com)). The business owner
+- **The SigzenLead website** ([sigzenlead.com](https://sigzenlead.com)). The business owner
   manages the team, the plan, the lead sources and the connection to ERPNext. Every scanned
   lead is kept here too.
 
@@ -52,7 +52,7 @@ scanned card becomes a normal ERPNext Lead within minutes, with nothing typed by
 | Get those leads into your ERPNext automatically | SigzenLead **and** this connector on your ERPNext site |
 | Use this connector without SigzenLead | Not possible. It only accepts leads sent by SigzenLead. |
 
-To get started with SigzenLead, sign up at [aisnaplead.com](https://aisnaplead.com) and
+To get started with SigzenLead, sign up at [sigzenlead.com](https://sigzenlead.com) and
 install the SigzenLead app on your team's phones. Then install this connector and follow
 [Setup](#setup) below.
 

@@ -39,6 +39,7 @@ INTEGRATION_ROLE_PERMISSIONS = {
 from sigzenlead_connector.brand_rename import (
 	APP_LABEL,
 	LEGACY_APP_LABELS,
+	LEGACY_DOCTYPES,
 	LEGACY_WORKSPACES,
 	WORKSPACE,
 )
@@ -52,9 +53,14 @@ SIDEBAR = APP_LABEL
 #: Logos the app tile carried before 1.1.1 (the neutral link glyph). A tile still showing one
 #: of these is moved to the current logo on migrate; a logo the client picked is left alone.
 #: The old file is still shipped with the new mark in it, so a missed row is not broken either.
+#: ai-snaplead-connector-logo.svg is the AI SnapLead release's logo. It is NOT shipped any more,
+#: and the package rename rewrites only the /assets/<package>/ prefix, so a tile migrated from
+#: AI SnapLead pointed at /assets/sigzenlead_connector/images/ai-snaplead-connector-logo.svg: a
+#: 404 and a broken image in the sidebar header.
 LEGACY_LOGO_URLS = frozenset(
-	f"/assets/{package}/images/vc-connector-logo.svg"
+	f"/assets/{package}/images/{file}"
 	for package in (APP, "ai_snaplead_connector", "vc_connector", "sigzen_ai_scan_crm_connector")
+	for file in ("vc-connector-logo.svg", "ai-snaplead-connector-logo.svg")
 )
 
 
@@ -173,6 +179,7 @@ def repair_desk():
 	path = workspace_json_path()
 	changed = bool(_in_savepoint(_rename_legacy_workspace))
 	changed = bool(_in_savepoint(repair_legacy_sidebar_labels)) or changed
+	changed = bool(_in_savepoint(repair_legacy_doctype_sidebar_labels)) or changed
 	if not frappe.db.exists("Workspace", WORKSPACE):
 		if not path:
 			return changed
@@ -1109,3 +1116,27 @@ def repair_legacy_sidebar_labels():
 	if stale:
 		frappe.clear_cache()
 	return len(stale)
+
+
+def repair_legacy_doctype_sidebar_labels():
+	"""Sidebar entries still LABELLED with a DocType's pre-rename name ("VC Connector Settings").
+
+	frappe built these entries from the workspace when the DocTypes still had their "VC" names.
+	brand_rename.rename_doctype moves `link_to` (a Link) onto the new DocType, but `label` is
+	plain Data, so the entry opened Connector Settings while still reading "VC Connector
+	Settings". Only an entry whose label is exactly the old DocType name is touched: a label the
+	client chose ("Received Leads") is left alone. Idempotent.
+	"""
+	changed = 0
+	for legacy, new in LEGACY_DOCTYPES.items():
+		stale = frappe.get_all(
+			"Workspace Sidebar Item",
+			filters={"label": legacy, "link_type": "DocType", "link_to": ("in", [legacy, new])},
+			pluck="name",
+		)
+		for name in stale:
+			frappe.db.set_value("Workspace Sidebar Item", name, "label", new, update_modified=False)
+		changed += len(stale)
+	if changed:
+		frappe.clear_cache()
+	return changed
