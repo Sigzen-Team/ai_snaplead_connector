@@ -8,8 +8,8 @@ Last reviewed: 2026-10-19, for release 1.1.0.
 
 ## Ready
 
-- [x] **Package name matches the app.** The package is `ai_snaplead_connector`
-      (development builds were `vc_connector`, release 1.0.0 was `sigzen_ai_scan_crm_connector`;
+- [x] **Package name matches the app.** The package is `sigzenlead_connector`
+      (development builds were `vc_connector`, release 1.0.0 was `sigzen_ai_scan_crm_connector`, 1.1.x was `ai_snaplead_connector`;
       `docs/UPGRADE_FROM_OLD_PACKAGE.md` covers the
       few sites that installed one, and the old API paths still answer).
 - [x] **Packaging.** `pyproject.toml` declares the name, licence, description and the supported
@@ -21,7 +21,7 @@ Last reviewed: 2026-10-19, for release 1.1.0.
 - [x] **Documentation.** `docs/REFERENCE.md` (API, error codes, tenancy, duplicate protection),
       `FIELD_MAP.md`, `CHANGELOG.md`.
 - [x] **Identity on the desk.** App title, workspace, sidebar, tile and module are all
-      "AI SnapLead - Connector". The logo (`public/images/ai-snaplead-connector-logo.svg`)
+      "SigzenLead - Connector". The logo (`public/images/sigzenlead-connector-logo.svg`)
       is shipped and declared in `add_to_apps_screen`; listing PNGs (512/256/128) and a
       1200x630 banner are exported from the same SVG.
 - [x] **Installs cleanly on MariaDB**, the database Frappe Cloud runs: fresh `install-app` on a
@@ -82,5 +82,5 @@ the repository has to be on a host it can reach (GitHub is what the Marketplace 
 
 - [ ] Add the app in the Frappe Cloud dashboard, choose the `master` branch for version 16 and
       confirm it builds
-- [ ] Install it on a Frappe Cloud test site and pair it once with AI SnapLead end to end
+- [ ] Install it on a Frappe Cloud test site and pair it once with SigzenLead end to end
 - [ ] Submit for review and answer the reviewer's questions

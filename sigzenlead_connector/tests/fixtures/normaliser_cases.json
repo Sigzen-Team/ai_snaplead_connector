@@ -1,0 +1,332 @@
+{
+ "_README": [
+  "SHARED FIXTURE. sigzenlead_connector/utils/phone.py and sigzenlead_connector/utils/india_state.py are",
+  "VENDORED copies of sigzenlead's normalisers -- sigzenlead_connector must not import sigzenlead,",
+  "because it is installed on client sites where sigzenlead does not exist.",
+  "Copies drift. This file is the contract that stops them: sigzenlead_connector reads it in",
+  "tests/test_normalisers.py, and sigzenlead is expected to grow the twin test reading THE",
+  "SAME file, so a change made on one side and not the other fails a test in that repo.",
+  "Until that twin test exists in sigzenlead, only the sigzenlead_connector side is pinned.",
+  "",
+  "The sections below `phone_match_keys` are sigzenlead_connector's OWN -- phone_match_key and",
+  "storable_phones have no twin in sigzenlead and are not part of the drift contract. They",
+  "exist because the vendored match key keeps only the last ten digits (so two numbers that",
+  "differ only in country code collapse into one) and says nothing about whether a value can",
+  "be STORED on a Contact Phone row at all.",
+  "",
+  "`storable_emails` is sigzenlead_connector's own too, and for the same reason as storable_phones:",
+  "one legacy field can hold two addresses, and validate_email_address alone says yes to",
+  "that string."
+ ],
+ "phones": [
+  {
+   "input": "+91 98765 43210",
+   "stored": "+919876543210",
+   "key": "9876543210"
+  },
+  {
+   "input": "09876543210",
+   "stored": "09876543210",
+   "key": "9876543210"
+  },
+  {
+   "input": "9876543210",
+   "stored": "9876543210",
+   "key": "9876543210"
+  },
+  {
+   "input": "  9876 543 210  ",
+   "stored": "9876543210",
+   "key": "9876543210"
+  },
+  {
+   "input": "+1 415 555 0123",
+   "stored": "+14155550123",
+   "key": "4155550123"
+  },
+  {
+   "input": "",
+   "stored": "",
+   "key": ""
+  },
+  {
+   "input": null,
+   "stored": "",
+   "key": ""
+  }
+ ],
+ "phone_lists": [
+  {
+   "input": [
+    "+91 98765 43210",
+    "09876543210",
+    "9876543210",
+    "9123456780"
+   ],
+   "deduped": [
+    "+919876543210",
+    "9123456780"
+   ]
+  },
+  {
+   "input": [
+    "",
+    null,
+    "  "
+   ],
+   "deduped": []
+  }
+ ],
+ "phone_match_keys": [
+  {
+   "a": "+91 98765 43210",
+   "b": "09876543210",
+   "same": true
+  },
+  {
+   "a": "+91 98765 43210",
+   "b": "9876543210",
+   "same": true
+  },
+  {
+   "a": "+1 212 555 0100",
+   "b": "+44 20 2125 550100",
+   "same": false
+  },
+  {
+   "a": "+1 212 555 0100",
+   "b": "+1 212 555 0101",
+   "same": false
+  }
+ ],
+ "storable_phones": [
+  {
+   "input": "+91 98765 43210, +91 98765 43211",
+   "stored": [
+    "+919876543210",
+    "+919876543211"
+   ],
+   "remainder": ""
+  },
+  {
+   "input": "9876543210 (O)",
+   "stored": [
+    "9876543210"
+   ],
+   "remainder": "9876543210 (O)"
+  },
+  {
+   "input": "080-25551234 Ext 22",
+   "stored": [
+    "080-25551234"
+   ],
+   "remainder": "080-25551234 Ext 22"
+  },
+  {
+   "input": "+91 98765 43210",
+   "stored": [
+    "+919876543210"
+   ],
+   "remainder": ""
+  },
+  {
+   "input": "call reception",
+   "stored": [],
+   "remainder": "call reception"
+  },
+  {
+   "input": "",
+   "stored": [],
+   "remainder": ""
+  },
+  {
+   "input": null,
+   "stored": [],
+   "remainder": ""
+  },
+  {
+   "_why": "The real number is 22 characters, which frappe's 20-character PHONE_STORAGE_PATTERN refuses. Nothing storable may be invented from what is left: the 'ext 9' run used to win a max() fallback and be written to the client's Contact as their phone number.",
+   "input": "+91 (080) 2555-1234-5678 ext 9",
+   "stored": [],
+   "remainder": "+91 (080) 2555-1234-5678 ext 9"
+  },
+  {
+   "_why": "Two whole numbers written as one run. Splitting at a bracket that opens a full number recovers both; before, the 22-character run was refused entire and neither number reached the Contact.",
+   "input": "7011477004(7011477005)",
+   "stored": [
+    "7011477004",
+    "7011477005"
+   ],
+   "remainder": ""
+  },
+  {
+   "_why": "A bracketed trunk code is NOT a second number, so this does not split: it stays one unstorable value and goes to the note as printed.",
+   "input": "+91 (080) 2555-1234-5678",
+   "stored": [],
+   "remainder": "+91 (080) 2555-1234-5678"
+  },
+  {
+   "_why": "Every run is short, so the value really is one short number (a desk extension) rather than a number plus an annotation.",
+   "input": "22",
+   "stored": [
+    "22"
+   ],
+   "remainder": ""
+  }
+ ],
+ "emails": [
+  {
+   "input": "  A@B.com ",
+   "normalized": "a@b.com"
+  },
+  {
+   "input": "already@lower.in",
+   "normalized": "already@lower.in"
+  },
+  {
+   "input": null,
+   "normalized": ""
+  }
+ ],
+ "email_lists": [
+  {
+   "input": [
+    "A@B.com",
+    "a@b.com",
+    "c@d.in"
+   ],
+   "deduped": [
+    "a@b.com",
+    "c@d.in"
+   ]
+  }
+ ],
+ "pincodes": [
+  {
+   "pincode": "380015",
+   "address_text": "",
+   "expected": "380015"
+  },
+  {
+   "pincode": "380 015",
+   "address_text": "",
+   "expected": "380015"
+  },
+  {
+   "pincode": "",
+   "address_text": "12 MG Road, Ahmedabad 380015",
+   "expected": "380015"
+  },
+  {
+   "pincode": "",
+   "address_text": "no pin here",
+   "expected": null
+  },
+  {
+   "pincode": "12345",
+   "address_text": "",
+   "expected": null
+  }
+ ],
+ "states": [
+  {
+   "address_text": "12 MG Road, Ahmedabad",
+   "city": "Ahmedabad",
+   "state": null,
+   "pincode": null,
+   "expected_state": "Gujarat",
+   "expected_source": "text"
+  },
+  {
+   "address_text": "Plot 4",
+   "city": null,
+   "state": null,
+   "pincode": "380015",
+   "expected_state": "Gujarat",
+   "expected_source": "pincode"
+  },
+  {
+   "address_text": "Plot 4",
+   "city": null,
+   "state": "gujarat",
+   "pincode": null,
+   "expected_state": "Gujarat",
+   "expected_source": "given"
+  },
+  {
+   "address_text": "Plot 4",
+   "city": null,
+   "state": "Orissa",
+   "pincode": null,
+   "expected_state": "Odisha",
+   "expected_source": "given"
+  },
+  {
+   "address_text": "Plot 4",
+   "city": null,
+   "state": null,
+   "pincode": null,
+   "expected_state": null,
+   "expected_source": null
+  },
+  {
+   "address_text": "Mumbai office, near Bengaluru road",
+   "city": null,
+   "state": null,
+   "pincode": null,
+   "expected_state": null,
+   "expected_source": null
+  }
+ ],
+ "storable_emails": [
+  {
+   "_why": "TWO addresses in one legacy field. frappe.utils.validate_email_address is truthy for the whole string and Contact Email stores it verbatim, so the migration used to write one row neither address could be found in.",
+   "input": "ravi@a.com, ravi.k@b.com",
+   "stored": [
+    "ravi@a.com",
+    "ravi.k@b.com"
+   ],
+   "remainder": ""
+  },
+  {
+   "_why": "A display-name form. validate_email_address returns the address out of the angle brackets, which is truthy, so the whole string used to be stored as the address.",
+   "input": "Ravi Kumar <ravi2@a.com>",
+   "stored": [
+    "ravi2@a.com"
+   ],
+   "remainder": "Ravi Kumar <ravi2@a.com>"
+  },
+  {
+   "_why": "Semicolons separate addresses too, and case is normalised on the way in.",
+   "input": "Sales@Acme.com; ops@acme.com",
+   "stored": [
+    "sales@acme.com",
+    "ops@acme.com"
+   ],
+   "remainder": ""
+  },
+  {
+   "_why": "A scan that is not an address at all: nothing is stored and the value as printed goes to the tagged note.",
+   "input": "john(at)example.com",
+   "stored": [],
+   "remainder": "john(at)example.com"
+  },
+  {
+   "input": "plain@example.com",
+   "stored": [
+    "plain@example.com"
+   ],
+   "remainder": ""
+  },
+  {
+   "input": "",
+   "stored": [],
+   "remainder": ""
+  },
+  {
+   "input": null,
+   "stored": [],
+   "remainder": ""
+  }
+ ]
+}

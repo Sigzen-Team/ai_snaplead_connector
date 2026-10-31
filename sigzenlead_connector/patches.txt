@@ -1,0 +1,10 @@
+[pre_model_sync]
+sigzenlead_connector.patches.v1_0.adopt_file_backed_doctypes
+sigzenlead_connector.patches.v1_0.rename_workspace_to_app_title
+
+[post_model_sync]
+sigzenlead_connector.patches.v1_0.restore_stock_lead_contact_fields
+sigzenlead_connector.patches.v1_0.migrate_legacy_lead_fields
+sigzenlead_connector.patches.v1_0.drop_legacy_lead_fields
+sigzenlead_connector.patches.v1_0.drop_unused_settings_values
+sigzenlead_connector.patches.v1_0.make_card_images_private
